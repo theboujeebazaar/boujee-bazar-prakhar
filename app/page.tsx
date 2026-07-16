@@ -156,17 +156,24 @@ export default async function Home() {
     .select('*')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
+  const { data: settingsData } = await supabase
+  .from('store_settings')
+  .select('value')
+  .eq('key', 'global_settings')
+  .single()
 
+  const settings = settingsData?.value || {}
   // 2. Fetch categories
-  const { data: categoriesData } = await supabase
-    .from('categories')
-    .select('id, name, slug, image, description, sort_order')
-    .order('sort_order', { ascending: true })
+  const { data: categoriesData, error } = await supabase
+  .from('categories')
+  .select('id, name, slug, image_url, description, sort_order')
+  .eq('is_active', true)
+  .order('sort_order', { ascending: true })
 
   // 3. Fetch products
   const { data: productsData } = await supabase
     .from('products')
-    .select('id, name, price, originalPrice, image, category, subcategory, tag, available')
+    .select('id, name, price, originalPrice, image, category, subcategory, tag, available,is_new_arrival,is_best_seller')
     .eq('available', true)
 
   const rawSlides = heroSlidesData || []
@@ -186,16 +193,26 @@ export default async function Home() {
     category_id: p.category?.trim().toLowerCase() || '',
     category_name: p.category || 'Jewelry',
     subcategory: p.subcategory?.trim().toLowerCase() || '',
+    is_new_arrival: p.is_new_arrival,
+    is_best_seller: p.is_best_seller,
   }))
 
   // Filter products for the specific sections
-  const newArrivals = allMappedProducts.filter(p => p.badge?.toLowerCase() === 'new' || p.id.startsWith('n'))
-  const bestSellers = allMappedProducts.filter(p => p.badge?.toLowerCase() === 'bestseller' || p.badge?.toLowerCase() === 'hot' || p.id.startsWith('b'))
+ const newArrivals = allMappedProducts.filter(
+  p => p.is_new_arrival === true
+)
+
+const bestSellers = allMappedProducts.filter(
+  p => p.is_best_seller === true
+)
   const saleProducts = allMappedProducts.filter(p => (p.originalPrice && p.originalPrice > p.price) || p.badge?.toLowerCase() === 'sale')
 
   return (
     <>
-      <Header />
+      <Header announcement={{
+    active: settings.announcement_active,
+    message: settings.announcement_message,
+  }}/>
       <main className="pt-24 md:pt-28">
         <Hero slides={rawSlides} />
         <Collections categories={rawCategories} />

@@ -82,24 +82,28 @@
 //     </div>
 //   )
 // }
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin' // 🌟 FIXED: Master superuser bypasses RLS blocks completely
 import Link from 'next/link'
 import { Plus, Package } from 'lucide-react'
 import type { Metadata } from 'next'
 import ProductRow from './_components/ProductRow'
 
 export const metadata: Metadata = {
-  title: 'Products | The Boujee Bazaar',
+  title: 'Products | The Boujee Bazaar Admin',
 }
 
 export default async function ProductsPage() {
-  const supabase = await createClient()
+  const supabaseAdmin = createAdminClient()
 
   // 1. ✅ FETCHES ALL COLUMNS CLEANLY ACCORDING TO YOUR EXACT DATABASE KEYS
-  const { data: rawProducts } = await supabase
+  const { data: rawProducts, error } = await supabaseAdmin
     .from('products')
     .select('*')
     .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error("Supabase catalog hydration fault:", error.message)
+  }
 
   // 2. Data Sanitizer: Normalizes your columns to prevent child rendering crashes
   const products = (rawProducts || []).map((p: any) => ({
@@ -111,7 +115,10 @@ export default async function ProductsPage() {
     // Maps your 'tag' column to the badge display
     badge: p.tag || undefined,
     // Maps your 'image' column so the sub-row thumbnail can render preview photos
-    featured_image_url: p.image || '/assets/img/placeholder.jpeg'
+    featured_image_url: p.image || '/assets/img/placeholder.jpeg',
+    // Injects explicit fallbacks for your newly appended table columns
+    is_new_arrival: p.is_new_arrival ?? false,
+    is_best_seller: p.is_best_seller ?? false
   }))
 
   return (
@@ -119,14 +126,14 @@ export default async function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">Products</h1>
+          <h1 className="text-2xl font-bold text-stone-900" style={{ fontFamily: 'Playfair Display, serif' }}>Products</h1>
           <p className="text-stone-500 text-sm mt-0.5">
-            Manage your minimal & luxury jewelry catalog
+            Manage your minimal & luxury jewelry catalog and curated homepage drops.
           </p>
         </div>
         <Link
           href="/admin/products/new"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-neutral-800 to-neutral-900 text-white text-sm font-semibold rounded-xl shadow-md hover:opacity-95 transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-900 text-white text-sm font-semibold rounded-xl shadow-md hover:bg-neutral-800 transition-all"
         >
           <Plus className="w-4 h-4" />
           Add Product
@@ -134,7 +141,7 @@ export default async function ProductsPage() {
       </div>
 
       {/* Table grid layout container */}
-      <div className="bg-white rounded-xl border border-stone-200/80 overflow-hidden">
+      <div className="bg-white rounded-xl border border-stone-200/80 overflow-hidden shadow-xs">
         {products.length === 0 ? (
           <div className="p-12 text-center">
             <Package className="w-10 h-10 text-stone-300 mx-auto mb-3" />
@@ -145,25 +152,27 @@ export default async function ProductsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-stone-50/50">
-                  <th className="text-left text-xs font-medium text-stone-500 uppercase tracking-wider px-6 py-3">
+                <tr className="bg-stone-50/70 border-b border-stone-200 text-stone-600 text-xs font-semibold">
+                  <th className="px-6 py-3.5 tracking-wider uppercase">
                     Product
                   </th>
-                  <th className="text-left text-xs font-medium text-stone-500 uppercase tracking-wider px-6 py-3">
-                    Category
+                  {/* 🌟 FIXED: Added columns to perfectly match the placement of checkboxes in ProductRow */}
+                  <th className="px-6 py-3.5 tracking-wider uppercase text-center">
+                    New Arrival
                   </th>
-                  <th className="text-left text-xs font-medium text-stone-500 uppercase tracking-wider px-6 py-3">
-                    Badge
+                  <th className="px-6 py-3.5 tracking-wider uppercase text-center">
+                    Best Seller
                   </th>
-                  <th className="text-left text-xs font-medium text-stone-500 uppercase tracking-wider px-6 py-3">
+              
+                  <th className="px-6 py-3.5 tracking-wider uppercase">
                     Status
                   </th>
-                  <th className="text-left text-xs font-medium text-stone-500 uppercase tracking-wider px-6 py-3">
+                  <th className="px-6 py-3.5 tracking-wider uppercase">
                     Created
                   </th>
-                  <th className="text-right text-xs font-medium text-stone-500 uppercase tracking-wider px-6 py-3">
+                  <th className="px-6 py-3.5 tracking-wider uppercase text-right">
                     Actions
                   </th>
                 </tr>

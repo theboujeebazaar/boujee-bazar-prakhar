@@ -99,13 +99,8 @@ export default function Categories({ categories = [] }: { categories?: Category[
             <span>{category.name}</span>
           </div>
         ))}
-        {/* Gift Icon item from your HTML layout blueprint */}
-        <div className="collection-item">
-          <div className="collection-img" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#f9f6f0" }}>
-            <i className="fa-solid fa-gift" style={{ fontSize: "2rem", color: "#c5a880" }}></i>
-          </div>
-          <span>Boujee Bits</span>
-        </div>
+       
+        
       </div>
     </section>
   );

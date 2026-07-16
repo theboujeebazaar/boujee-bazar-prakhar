@@ -93,17 +93,7 @@ export default function Collections({ categories: dbCategories }: { categories?:
           </div>
         ))}
 
-        {/* Gift Icon Item - from index.html */}
-        <div 
-          className="collection-item" 
-          onClick={() => handleCollectionClick('boujee-bits')}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="collection-img">
-            <i className="fa-solid fa-gift gift-icon"></i>
-          </div>
-          <span>Boujee Bits</span>
-        </div>
+        
       </div>
 
       {/* View All Button - from index.html */}

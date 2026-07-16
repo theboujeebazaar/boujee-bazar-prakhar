@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export type ActionResult = {
   error?: string
@@ -178,6 +179,31 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
 
   revalidatePath('/admin/products')
   return { success: true }
+}
+export async function updateProductPlacementStatus(
+  productId: string, 
+  field: 'is_new_arrival' | 'is_best_seller', 
+  value: boolean
+) {
+  const supabaseAdmin = createAdminClient()
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('products')
+      .update({ [field]: value })
+      .eq('id', productId)
+
+    if (error) {
+      console.error(`Failed to update ${field}:`, error.message)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/')
+    revalidatePath('/shop')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
 }
 
 // ─── Product Information CRUD ────────────────────────────

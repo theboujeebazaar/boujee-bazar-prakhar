@@ -257,6 +257,7 @@ export default function Products({ products: dbProducts }: { products?: Product[
           <p>Loading products...</p>
         </div>
       ) : (
+        
         <div className="products-grid">
           {products.map(product => (
             <ProductCard
@@ -270,6 +271,7 @@ export default function Products({ products: dbProducts }: { products?: Product[
             />
           ))}
         </div>
+    
       )}
     </section>
   )

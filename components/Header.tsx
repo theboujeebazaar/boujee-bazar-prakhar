@@ -525,6 +525,9 @@ export default function Header() {
 
   loadHeaderData();
 }, []);
+useEffect(() => {
+  console.log("Announcement Data:", announcement);
+}, [announcement]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -600,14 +603,15 @@ export default function Header() {
       }`} style={{ fontFamily: 'Poppins, sans-serif' }}>
         
         {/* 🌟 UI MATCH: Top Announcement Bar styled with minimal black backgrounds from your HTML */}
-        {announcement?.is_active && (
-  <div className="w-full bg-neutral-900 text-white text-[10px] sm:text-xs py-2.5 px-4 text-center font-semibold tracking-widest uppercase flex items-center justify-center gap-1">
-    {announcement.message}
+        {announcement?.global_settings?.announcement_active && (
+  <div className="w-full bg-neutral-900 text-white text-[10px] sm:text-xs py-2.5 px-4 text-center font-semibold tracking-widest uppercase flex items-center justify-center gap-2">
+    <span>✨</span>
+    <span>{announcement.global_settings.announcement_message}</span>
+    <span>✨</span>
   </div>
 )}
         {/* Main Navbar Core */}
-        <div className="max-w-7xl mx-auto px-5 md:px-8 flex items-center justify-between h-[72px] md:h-[84px] relative">
-          
+        <div className="max-w-7xl mx-auto px-5 md:px-8 flex items-center justify-between h-[72px] md:h-[84px] relative border-b border-neutral-100">
           {/* Mobile hamburger — Left side on mobile viewports */}
           <button
             aria-label={open ? "Close menu" : "Open menu"}
