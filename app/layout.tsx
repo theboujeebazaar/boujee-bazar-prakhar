@@ -90,7 +90,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="overflow-x-hidden">
+    <html lang="en" className="overflow-x-clip">
       <head>
         {/* Preconnect for Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -113,7 +113,7 @@ export default function RootLayout({
         />
       </head>
 
-      <body className="overflow-x-hidden w-full antialiased bg-white">
+      <body className="overflow-x-clip w-full antialiased bg-white">
          {/* <AuthProvider>  */}
           <ToastProvider>
             <WishlistProvider>

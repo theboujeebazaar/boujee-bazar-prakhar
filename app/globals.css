@@ -165,7 +165,9 @@
 
       /* Hero Slider */
       .hero-slider {
-        margin: 20px 40px;
+        width: calc(100% - 80px);
+        max-width: 1500px;
+        margin: 20px auto;
         border-radius: 30px;
         overflow: hidden;
         position: relative;
@@ -858,7 +860,9 @@ gap: 30px;
       .newsletter-banner {
         background-color: var(--card-bg);
         padding: 80px 40px;
-        margin: 40px;
+        width: calc(100% - 80px);
+        max-width: 1500px;
+        margin: 40px auto;
         border-radius: 30px;
         text-align: center;
         border: 1px solid var(--border-color);
@@ -1119,7 +1123,8 @@ gap: 30px;
         }
 
         .hero-slider {
-          margin: 15px;
+          width: calc(100% - 30px);
+          margin: 15px auto;
           height: auto;
         }
         .hero-image {
@@ -1239,7 +1244,8 @@ gap: 30px;
           margin: 20px 10px;
         }
         .newsletter-banner {
-          margin: 20px 10px;
+          width: calc(100% - 20px);
+          margin: 20px auto;
           padding: 40px 20px;
         }
         .section-title.left {

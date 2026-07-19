@@ -48,9 +48,9 @@ export default function Features() {
   ]
 
   return (
-    <section className="w-full px-5 md:px-10 py-12 md:py-16 bg-[#FFFdf9]">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-[#FFF3E8] rounded-[32px] px-8 py-10 md:py-12 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 md:gap-4">
+    <section className="w-full py-12 md:py-16 bg-[#FFFdf9]">
+      <div className="w-full max-w-[1500px] mx-auto px-4 md:px-12">
+        <div className="bg-[#FFF3E8] rounded-[32px] px-6 py-10 md:px-8 md:py-12 shadow-sm grid grid-cols-2 md:flex md:flex-row items-start md:items-center justify-between gap-y-8 gap-x-4 md:gap-4">
           {features.map((feature, idx) => (
             <div key={idx} className="flex-1 flex flex-col items-center md:items-start md:flex-row gap-4 md:gap-5 w-full relative">
               <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-transparent border-[1.5px] border-neutral-800">
@@ -64,7 +64,7 @@ export default function Features() {
                   {feature.description}
                 </p>
               </div>
-              
+
               {/* Divider for desktop */}
               {idx < features.length - 1 && (
                 <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 w-px h-12 bg-neutral-200/60"></div>

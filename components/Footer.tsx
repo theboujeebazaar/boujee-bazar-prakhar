@@ -6,7 +6,7 @@ import Image from 'next/image'
 export default function Footer() {
   return (
     <footer className="bg-[#FBF7F0] pt-16 pb-8 border-t border-neutral-200" style={{ fontFamily: 'Poppins, sans-serif' }}>
-      <div className="w-full px-5 md:px-10">
+      <div className="w-full max-w-[1500px] mx-auto px-5 md:px-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8">
           
           {/* Brand & Socials - spans 2 columns on large screens to give logo space */}

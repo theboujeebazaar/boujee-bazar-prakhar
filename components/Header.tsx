@@ -613,7 +613,7 @@ useEffect(() => {
   </div>
 )}
         {/* Main Navbar Core */}
-        <div className="w-full px-5 md:px-10 flex items-center justify-between h-[72px] md:h-[84px] relative">
+        <div className="w-full max-w-[1500px] mx-auto px-5 md:px-10 flex items-center justify-between h-[72px] md:h-[84px] relative">
           {/* Mobile hamburger — Left side on mobile viewports */}
           <button
             aria-label={open ? "Close menu" : "Open menu"}

@@ -5,7 +5,7 @@ import Image from 'next/image'
 
 export default function About() {
   return (
-    <section className="w-full px-5 md:px-10 pb-16 md:pb-24 bg-[#FFFdf9]">
+    <section className="w-full pb-16 md:pb-24 bg-[#FFFdf9]">
       <div className="w-full max-w-[1500px] mx-auto px-4 md:px-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
           

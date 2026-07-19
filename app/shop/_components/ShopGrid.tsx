@@ -297,10 +297,14 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8" style={{ fontFamily: 'Poppins, sans-serif' }}>
-        
-        {/* Desktop Fixed Left Sidebar Filter Panel */}
-        <div className="hidden lg:block lg:col-span-1 bg-white p-6 rounded-2xl border border-neutral-100 shadow-sm h-fit sticky top-[100px] max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
-          {FilterContent}
+
+        {/* Desktop Fixed Left Sidebar Filter Panel — outer div stretches to match the
+            product column's full height so the inner sticky card has room to stay
+            pinned for the whole scroll instead of detaching early. */}
+        <div className="hidden lg:block lg:col-span-1">
+          <div className="sticky top-[100px] bg-white p-6 rounded-2xl border border-neutral-100 shadow-sm max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
+            {FilterContent}
+          </div>
         </div>
 
         {/* Dynamic Jewelry Product Grid Canvas Area */}
