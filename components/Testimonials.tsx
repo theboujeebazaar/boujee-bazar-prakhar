@@ -29,11 +29,11 @@ export default function Testimonials() {
                 </p>
                 <div className="mt-5 flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-emerald text-cream flex items-center justify-center font-display font-semibold text-sm shrink-0">
-                    {t.initials}
+                    {t.name.split(' ').map((n: string) => n[0]).join('')}
                   </div>
                   <div>
                     <p className="font-semibold text-ink text-sm">{t.name}</p>
-                    <p className="text-ink/50 text-xs">{t.city}</p>
+                    <p className="text-ink/50 text-xs">{t.city || 'Verified Buyer'}</p>
                   </div>
                 </div>
               </div>

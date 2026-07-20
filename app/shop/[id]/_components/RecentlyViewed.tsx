@@ -54,7 +54,7 @@ export default function RecentlyViewed({ currentProductId }: { currentProductId:
           // Sort items back to match the order of filteredIds
           const sorted = filteredIds
             .map(id => data.find(p => p.id === id))
-            .filter((p): p is Product => !!p)
+            .filter(Boolean) as Product[]
           setProducts(sorted)
         }
       } catch (err) {

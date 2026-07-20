@@ -171,7 +171,7 @@ export async function updateCustomerFullProfile(data: {
   city: string
   state: string
   zipCode: string
-}) {
+}): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   
   let user = null

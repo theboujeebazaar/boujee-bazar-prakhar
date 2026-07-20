@@ -386,6 +386,7 @@ export type Testimonial = {
   image: string;
   quote: string;
   rating: number;
+  city?: string;
 };
 
 export const testimonials: Testimonial[] = [

@@ -491,7 +491,14 @@ import { useRouter, usePathname } from "next/navigation";
 import { getShippingSettings } from "@/actions/admin/shipping";
 import { getCompleteStoreConfig } from "@/actions/admin/announcements";
 import LimitedEdition from "./Edition"; 
-export default function Header() {
+interface HeaderProps {
+  announcement?: {
+    active: boolean;
+    message: string;
+  };
+}
+
+export default function Header({ announcement: propAnnouncement }: HeaderProps = {}) {
   
   const [announcement, setAnnouncement] = useState<any>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -509,25 +516,33 @@ export default function Header() {
   const [shipping, setShipping] = useState<any>(null);
 
   useEffect(() => {
-  async function loadHeaderData() {
-    try {
-      const [shippingData, announcementData] = await Promise.all([
-        getShippingSettings(),
-        getCompleteStoreConfig(),
-      ]);
+    async function loadHeaderData() {
+      try {
+        const [shippingData, announcementData] = await Promise.all([
+          getShippingSettings(),
+          getCompleteStoreConfig(),
+        ]);
 
-      setShipping(shippingData);
-      setAnnouncement(announcementData);
-    } catch (err) {
-      console.error(err);
+        setShipping(shippingData);
+        setAnnouncement(announcementData);
+      } catch (err) {
+        console.error(err);
+      }
     }
-  }
 
-  loadHeaderData();
-}, []);
-useEffect(() => {
-  console.log("Announcement Data:", announcement);
-}, [announcement]);
+    loadHeaderData();
+  }, []);
+
+  const isAnnouncementActive = propAnnouncement 
+    ? propAnnouncement.active 
+    : announcement?.global_settings?.announcement_active;
+  const announcementMessage = propAnnouncement
+    ? propAnnouncement.message
+    : announcement?.global_settings?.announcement_message;
+
+  useEffect(() => {
+    console.log("Announcement Data:", announcement);
+  }, [announcement]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -605,10 +620,10 @@ useEffect(() => {
       }`} style={{ fontFamily: 'Poppins, sans-serif' }}>
         
         {/* 🌟 UI MATCH: Top Announcement Bar styled with minimal black backgrounds from your HTML */}
-        {announcement?.global_settings?.announcement_active && (
+        {isAnnouncementActive && (
   <div className="w-full bg-neutral-900 text-white text-[10px] sm:text-xs py-2.5 px-4 text-center font-semibold tracking-widest uppercase flex items-center justify-center gap-2">
     <span>✨</span>
-    <span>{announcement.global_settings.announcement_message}</span>
+    <span>{announcementMessage}</span>
     <span>✨</span>
   </div>
 )}

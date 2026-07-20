@@ -80,7 +80,7 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
     if (selectedCategory) {
       setSelectedCategories([selectedCategory.trim().toLowerCase()])
       // Auto-expand the selected category
-      setExpandedCategories(prev => [...new Set([...prev, selectedCategory.trim().toLowerCase()])])
+      setExpandedCategories(prev => Array.from(new Set([...prev, selectedCategory.trim().toLowerCase()])))
     } else {
       setSelectedCategories([])
     }
