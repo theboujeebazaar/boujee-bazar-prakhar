@@ -43,6 +43,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import AdminSidebar from '@/components/admin/Sidebar'
 import AdminHeader from '@/components/admin/Header'
+import DashboardShell from '@/components/admin/DashboardShell'
 
 export default async function AdminDashboardLayout({
   children,
@@ -62,14 +63,12 @@ export default async function AdminDashboardLayout({
 
   // 3. Render the original layout interface shell cleanly using your custom verification values
   return (
-    <div className="flex h-screen overflow-hidden bg-stone-50" style={{ fontFamily: 'Poppins, sans-serif' }}>
-      {/* Renders your original sidebar panels without changes */}
-      <AdminSidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
-    </div>
+    <DashboardShell
+      sidebar={<AdminSidebar />}
+      header={<AdminHeader />}
+    >
+      {children}
+    </DashboardShell>
   )
 }
 

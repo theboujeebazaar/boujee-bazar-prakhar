@@ -100,7 +100,7 @@
 //                 fill
 //                 className="object-cover"
 //               />
-              
+
 //               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
 //                 <div className="flex justify-end">
 //                   <button
@@ -112,7 +112,7 @@
 //                     <X className="w-4 h-4" />
 //                   </button>
 //                 </div>
-                
+
 //                 <div className="flex justify-center mb-2">
 //                   {!isFeatured && (
 //                     <button
@@ -190,6 +190,7 @@ export function ProductImagesEditor({
         </div>
         <CldUploadWidget
           signatureEndpoint="/api/cloudinary/sign"
+          uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
           onSuccess={handleUploadSuccess}
           onOpen={() => setUploading(true)}
           options={{ multiple: true, maxFiles: 5 }}
@@ -214,9 +215,8 @@ export function ProductImagesEditor({
           return (
             <div
               key={img.id || idx}
-              className={`relative group aspect-square rounded-xl overflow-hidden border-2 ${
-                isFeatured ? 'border-[#c5a880]' : 'border-stone-200'
-              }`}
+              className={`relative group aspect-square rounded-xl overflow-hidden border-2 ${isFeatured ? 'border-[#c5a880]' : 'border-stone-200'
+                }`}
             >
               <Image src={img.image_url} alt="Jewelry showcase thumbnail" fill className="object-cover" />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
@@ -224,7 +224,7 @@ export function ProductImagesEditor({
                   <button
                     type="button"
                     onClick={async () => {
-                      if(confirm('Remove this photo from image arrays?')) {
+                      if (confirm('Remove this photo from image arrays?')) {
                         startTransition(async () => { await deleteProductImage(img.id, product.id) })
                       }
                     }}
@@ -234,7 +234,7 @@ export function ProductImagesEditor({
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                
+
                 <div className="flex justify-center mb-2">
                   {!isFeatured && (
                     <button

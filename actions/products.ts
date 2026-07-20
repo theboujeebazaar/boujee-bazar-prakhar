@@ -55,19 +55,26 @@ export async function createProduct(
   const supabase = await createClient()
 
   const name = formData.get('name') as string
-  const categoryId = formData.get('category_id') as string
-  const shortDescription = formData.get('short_description') as string
+  const categoryId = formData.get('category_id') as string || formData.get('category') as string
+  const sku = formData.get('sku') as string
+  const stock = Number(formData.get('stock') || 0)
+  const price = Number(formData.get('price') || 0)
+  const originalPrice = formData.get('originalPrice') || formData.get('original_price') ? Number(formData.get('originalPrice') || formData.get('original_price')) : null
+  const fabric_info = formData.get('fabric_info') as string
+  const washing_instructions = formData.get('washing_instructions') as string
   const description = formData.get('description') as string
-  const fabric = formData.get('fabric') as string
-  const stitching = formData.get('stitching') as string
   const seoTitle = formData.get('seo_title') as string
   const seoDescription = formData.get('seo_description') as string
-  const badge = formData.get('badge') as string
-  const colorName = formData.get('color_name') as string
+  const image = formData.get('image') as string
+  const imagesJson = formData.get('images') as string
+  const images = imagesJson ? JSON.parse(imagesJson) : []
+  const tag = formData.get('tag') as string
+  const available = formData.get('available') === 'true' || formData.get('available') === 'on' || formData.get('available') === 'available'
+  const isFeatured = formData.get('is_featured') === 'on' || formData.get('is_featured') === 'true'
+  const colorsInput = formData.get('colors') as string
+  const colors = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : []
   const colorHex = formData.get('color_hex') as string
   const groupWith = (formData.get('group_with') as string) || null
-  const isActive = formData.get('is_active') === 'on'
-  const isFeatured = formData.get('is_featured') === 'on'
 
   if (!name) {
     return { error: 'Product name is required' }
@@ -81,19 +88,26 @@ export async function createProduct(
     id,
     name,
     slug,
+    category: categoryId || null,
     category_id: categoryId || null,
-    short_description: shortDescription || null,
+    sku: sku || null,
+    stock,
+    price,
+    originalPrice,
+    fabric_info: fabric_info || null,
+    washing_instructions: washing_instructions || null,
     description: description || null,
-    fabric: fabric || null,
-    stitching: stitching || null,
     seo_title: seoTitle || null,
     seo_description: seoDescription || null,
-    badge: badge || null,
-    color_name: colorName || null,
+    image: image || null,
+    images: images,
+    tag: tag || null,
+    available,
+    is_active: available,
+    is_featured: isFeatured,
+    colors: colors,
     color_hex: colorHex || null,
     color_group_id: colorGroupId,
-    is_active: isActive,
-    is_featured: isFeatured,
   }).select('id').single()
 
   if (error) {
@@ -115,19 +129,26 @@ export async function updateProduct(
 
   const id = formData.get('id') as string
   const name = formData.get('name') as string
-  const categoryId = formData.get('category_id') as string
-  const shortDescription = formData.get('short_description') as string
+  const categoryId = formData.get('category_id') as string || formData.get('category') as string
+  const sku = formData.get('sku') as string
+  const stock = Number(formData.get('stock') || 0)
+  const price = Number(formData.get('price') || 0)
+  const originalPrice = formData.get('originalPrice') || formData.get('original_price') ? Number(formData.get('originalPrice') || formData.get('original_price')) : null
+  const fabric_info = formData.get('fabric_info') as string
+  const washing_instructions = formData.get('washing_instructions') as string
   const description = formData.get('description') as string
-  const fabric = formData.get('fabric') as string
-  const stitching = formData.get('stitching') as string
   const seoTitle = formData.get('seo_title') as string
   const seoDescription = formData.get('seo_description') as string
-  const badge = formData.get('badge') as string
-  const colorName = formData.get('color_name') as string
+  const image = formData.get('image') as string
+  const imagesJson = formData.get('images') as string
+  const images = imagesJson ? JSON.parse(imagesJson) : []
+  const tag = formData.get('tag') as string
+  const available = formData.get('available') === 'true' || formData.get('available') === 'on' || formData.get('available') === 'available'
+  const isFeatured = formData.get('is_featured') === 'on' || formData.get('is_featured') === 'true'
+  const colorsInput = formData.get('colors') as string
+  const colors = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : []
   const colorHex = formData.get('color_hex') as string
   const groupWith = (formData.get('group_with') as string) || null
-  const isActive = formData.get('is_active') === 'on'
-  const isFeatured = formData.get('is_featured') === 'on'
 
   if (!id || !name) {
     return { error: 'Product ID and name are required' }
@@ -141,19 +162,26 @@ export async function updateProduct(
     .update({
       name,
       slug,
+      category: categoryId || null,
       category_id: categoryId || null,
-      short_description: shortDescription || null,
+      sku: sku || null,
+      stock,
+      price,
+      originalPrice,
+      fabric_info: fabric_info || null,
+      washing_instructions: washing_instructions || null,
       description: description || null,
-      fabric: fabric || null,
-      stitching: stitching || null,
       seo_title: seoTitle || null,
       seo_description: seoDescription || null,
-      badge: badge || null,
-      color_name: colorName || null,
+      image: image || null,
+      images: images,
+      tag: tag || null,
+      available,
+      is_active: available,
+      is_featured: isFeatured,
+      colors: colors,
       color_hex: colorHex || null,
       color_group_id: colorGroupId,
-      is_active: isActive,
-      is_featured: isFeatured,
     })
     .eq('id', id)
 
@@ -181,8 +209,8 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
   return { success: true }
 }
 export async function updateProductPlacementStatus(
-  productId: string, 
-  field: 'is_new_arrival' | 'is_best_seller', 
+  productId: string,
+  field: 'is_new_arrival' | 'is_best_seller',
   value: boolean
 ) {
   const supabaseAdmin = createAdminClient()
@@ -278,7 +306,7 @@ export async function addProductImage(
   if (nextSort === 0) {
     await supabase
       .from('products')
-      .update({ featured_image_url: imageUrl })
+      .update({ image: imageUrl })
       .eq('id', productId)
   }
 
@@ -306,11 +334,11 @@ export async function deleteProductImage(imageId: string, productId: string): Pr
   if (image) {
     const { data: product } = await supabase
       .from('products')
-      .select('featured_image_url')
+      .select('image')
       .eq('id', productId)
       .single()
-      
-    if (product?.featured_image_url === image.image_url) {
+
+    if (product?.image === image.image_url) {
       // Find another image to feature
       const { data: nextImage } = await supabase
         .from('product_images')
@@ -319,10 +347,10 @@ export async function deleteProductImage(imageId: string, productId: string): Pr
         .order('sort_order', { ascending: true })
         .limit(1)
         .single()
-        
+
       await supabase
         .from('products')
-        .update({ featured_image_url: nextImage ? nextImage.image_url : null })
+        .update({ image: nextImage ? nextImage.image_url : null })
         .eq('id', productId)
     }
   }
@@ -339,7 +367,7 @@ export async function setFeaturedImage(
 
   const { error } = await supabase
     .from('products')
-    .update({ featured_image_url: imageUrl })
+    .update({ image: imageUrl })
     .eq('id', productId)
 
   if (error) {

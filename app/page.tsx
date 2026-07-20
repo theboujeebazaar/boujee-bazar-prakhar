@@ -169,12 +169,12 @@ export default async function Home() {
     console.error('❌ Error fetching global_faqs:', faqsError)
   }
   const rawFaqs = faqsData || []
-  // Fetch active hero slides
-  const { data: heroSlidesData } = await supabase
-    .from('hero_slides')
-    .select('*')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
+  // Fetch active hero slides from homepage_config
+  const { data: homepageConfig } = await supabase
+    .from('homepage_config')
+    .select('hero_images')
+    .eq('id', 'main')
+    .maybeSingle()
 
   // Fetch categories
   const { data: categoriesData } = await supabase
@@ -189,7 +189,7 @@ export default async function Home() {
     .select('id, name, price, originalPrice, image, category, subcategory, tag, available, is_new_arrival, is_best_seller')
     .eq('available', true)
 
-  const rawSlides = heroSlidesData || []
+  const rawSlides = homepageConfig?.hero_images || []
   const rawCategories = categoriesData || []
   const rawProducts = productsData || []
 

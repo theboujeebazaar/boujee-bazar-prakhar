@@ -85,6 +85,7 @@ export function HeroSlideList({
         {slides.length < 6 ? (
           <CldUploadWidget 
             signatureEndpoint="/api/cloudinary/sign"
+            uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
             /* ✅ FIXED: Updated maxFiles restriction and enabled multiple selection flag queues */
             options={{
               maxFiles: 6 - slides.length, // Dynamic calculation prevents exceeding your 6-slide max limit

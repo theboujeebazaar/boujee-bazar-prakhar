@@ -424,8 +424,15 @@ interface ProductFormProps {
 export default function ProductForm({ product, categories, otherProducts = [] }: ProductFormProps) {
   const isEditing = !!product
   const action = isEditing ? updateProduct : createProduct
-  const [imageUrl, setImageUrl] = useState(product?.image || "");
-const [isUploading, setIsUploading] = useState(false);
+  const [imageUrl, setImageUrl] = useState(product?.image || "")
+  const [imagesList, setImagesList] = useState<string[]>(
+    product?.images && product.images.length > 0
+      ? product.images
+      : product?.image
+      ? [product.image]
+      : []
+  )
+  const [isUploading, setIsUploading] = useState(false)
   const [state, formAction] = useActionState<ActionResult, FormData>(
     action,
     {}
@@ -516,7 +523,7 @@ const [isUploading, setIsUploading] = useState(false);
                 >
                   <option value="">Select Category</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
+                    <option key={cat.id} value={cat.id}>
                       {cat.name}
                     </option>
                   ))}
@@ -665,72 +672,103 @@ const [isUploading, setIsUploading] = useState(false);
           <div className="bg-white rounded-xl border border-stone-200/80 p-6 space-y-4">
             <h2 className="text-base font-semibold text-stone-900">Catalog Media</h2>
             <div>
-              <label htmlFor="product-image" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Image Upload 
+              <label className="block text-sm font-medium text-stone-700 mb-2">
+                Product Images
               </label>
-              <input
-  type="hidden"
-  name="image"
-  value={imageUrl}
-/>
+              
+              <input type="hidden" name="image" value={imageUrl} />
+              <input type="hidden" name="images" value={JSON.stringify(imagesList)} />
 
-{imageUrl ? (
-  <div className="relative w-full max-w-sm aspect-square rounded-xl overflow-hidden border">
-    <Image
-      src={imageUrl}
-      alt="Product"
-      fill
-      className="object-cover"
-    />
+              {/* Grid of uploaded images */}
+              {imagesList.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {imagesList.map((url, idx) => {
+                    const isCover = imageUrl === url || (!imageUrl && idx === 0)
+                    return (
+                      <div key={idx} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${isCover ? 'border-[#c5a880]' : 'border-stone-200'}`}>
+                        <Image src={url} alt="product image" fill className="object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = imagesList.filter((_, i) => i !== idx)
+                            setImagesList(updated)
+                            if (isCover) {
+                              setImageUrl(updated.length > 0 ? updated[0] : "")
+                            }
+                          }}
+                          className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        
+                        {!isCover && (
+                          <button
+                            type="button"
+                            onClick={() => setImageUrl(url)}
+                            className="absolute bottom-1 left-1 right-1 py-1 text-[10px] font-bold text-center bg-white/90 hover:bg-white text-stone-800 rounded shadow-sm transition-colors"
+                          >
+                            Set Cover
+                          </button>
+                        )}
+                        {isCover && (
+                          <div className="absolute bottom-1 left-1 right-1 py-1 text-[10px] font-bold text-center bg-[#fdfaf4] text-[#7c6243] border border-[#c5a880]/30 rounded">
+                            Cover
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
 
-    <button
-      type="button"
-      onClick={() => setImageUrl("")}
-      className="absolute top-2 right-2 bg-white rounded-full p-2"
-    >
-      <X className="w-4 h-4" />
-    </button>
-  </div>
-) : (
-  <CldUploadWidget
-    signatureEndpoint="/api/cloudinary/sign"
-    options={{
-      maxFiles: 1,
-      resourceType: "image",
-      clientAllowedFormats: ["jpg", "jpeg", "png", "webp"],
-    }}
-    onOpen={() => setIsUploading(true)}
-    onSuccess={(result: any) => {
-      setImageUrl(result.info.secure_url);
-      setIsUploading(false);
-    }}
-    onError={() => setIsUploading(false)}
-  >
-    {({ open }) => (
-      <button
-        type="button"
-        onClick={() => open()}
-        disabled={isUploading}
-        className="w-full max-w-sm aspect-square border-2 border-dashed rounded-xl flex flex-col items-center justify-center"
-      >
-        {isUploading ? (
-          <Loader2 className="w-6 h-6 animate-spin" />
-        ) : (
-          <>
-            <ImageIcon className="w-7 h-7" />
-            <span>Upload Product Image</span>
-          </>
-        )}
-      </button>
-    )}
-  </CldUploadWidget>
-)}
+              {/* Upload Button - Always visible so they can add more */}
+              <CldUploadWidget
+                signatureEndpoint="/api/cloudinary/sign"
+                uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
+                options={{
+                  multiple: true,
+                  resourceType: "image",
+                  clientAllowedFormats: ["jpg", "jpeg", "png", "webp"],
+                }}
+                onOpen={() => setIsUploading(true)}
+                onSuccess={(result: any) => {
+                  setIsUploading(false)
+                  const urls: string[] = []
+                  if (result?.info?.files) {
+                    result.info.files.forEach((f: any) => {
+                      const u = f.uploadInfo?.secure_url || f.secure_url
+                      if (u) urls.push(u)
+                    })
+                  } else if (result?.info?.secure_url) {
+                    urls.push(result.info.secure_url)
+                  }
+                  
+                  if (urls.length > 0) {
+                    setImagesList((prev) => [...prev, ...urls])
+                    setImageUrl((prev) => prev || urls[0])
+                  }
+                }}
+                onError={() => setIsUploading(false)}
+              >
+                {({ open }) => (
+                  <button
+                    type="button"
+                    onClick={() => open()}
+                    disabled={isUploading}
+                    className="w-full py-4 border-2 border-dashed border-stone-300 hover:border-[#c5a880] rounded-xl flex flex-col items-center justify-center gap-1.5 bg-stone-50 hover:bg-stone-100/50 text-stone-500 hover:text-stone-700 transition-all"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-[#c5a880]" />
+                    ) : (
+                      <>
+                        <ImageIcon className="w-6 h-6 text-stone-400" />
+                        <span className="text-xs font-semibold">Upload Product Images (Multiple Allowed)</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </CldUploadWidget>
             </div>
-            {product?.image && (
-              <div className="border rounded-xl overflow-hidden aspect-square relative bg-stone-50 mt-2">
-                <img src={product.image} alt="Upload preview thumbnail" className="w-full h-full object-cover" />
-              </div>
-            )}
           </div>
 
           {/* Section E: Visibility Controls & Status Badges */}

@@ -109,7 +109,7 @@ export default function CategoryForm({ category }: CategoryFormProps) {
           ) : (
             <CldUploadWidget 
               signatureEndpoint="/api/cloudinary/sign"
-              // uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
+              uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
               options={{
                 maxFiles: 1,
                 resourceType: "image",

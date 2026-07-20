@@ -54,7 +54,7 @@ export default function Hero({ slides: dbSlides }: { slides?: any[] }) {
         highlight: slide.title ? slide.title.split(' ').slice(-1)[0] : 'completes you.',
         description: slide.description || 'Anti-tarnish • Waterproof • Hypoallergenic.',
         cta: slide.button_text || 'SHOP NOW ✨',
-        image: slide.image_url || 'assets/img/slider_1.jpeg',
+        image: slide.url || slide.image_url || 'assets/img/slider_1.jpeg',
         button_link: slide.button_link || '/shop'
       }))
     : fallbackSlides
