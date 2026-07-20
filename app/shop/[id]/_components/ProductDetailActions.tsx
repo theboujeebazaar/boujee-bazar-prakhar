@@ -18,13 +18,13 @@ export type ProductVariant = {
 type ProductItem = {
   id: string
   name: string
-  image_url: string
+  image_url: string | string[] // ✅ Fixed type to safely support string or array formats
   category_name?: string
   variants: ProductVariant[]
 }
 
 export default function ProductDetailActions({ product }: { product: ProductItem }) {
-  const { addToCart, updateQuantity, cart } = useCart()
+  const { addToCart, cart } = useCart()
   const { showToast } = useToast()
   const router = useRouter()
   const [quantity, setQuantity] = useState(1)
@@ -32,14 +32,17 @@ export default function ProductDetailActions({ product }: { product: ProductItem
     product.variants.length > 0 ? product.variants[0] : null
   )
 
-  // Use the selected variant price, or fallback to 0 (which shouldn't happen)
   const currentPrice = selectedVariant ? selectedVariant.price : 0
   const currentoriginalPrice = selectedVariant ? selectedVariant.original_price : null
 
-  // Find if this exact item+variant is already in cart
   const cartItemId = `${product.id}-${selectedVariant?.id || 'default'}`
   const cartItem = cart.find(item => item.cartItemId === cartItemId)
   const currentQty = cartItem ? cartItem.quantity : 0
+
+  // ✅ Clean helper resolves array states vs single image strings safely from page.tsx props
+  const resolvedImageUrl = Array.isArray(product.image_url) 
+    ? product.image_url[0] 
+    : (product.image_url || '/assets/img/placeholder.jpeg')
 
   const handleAdd = () => {
     if (product.variants.length > 0 && !selectedVariant) {
@@ -57,7 +60,7 @@ export default function ProductDetailActions({ product }: { product: ProductItem
         id: product.id,
         name: product.name,
         price: currentPrice,
-        image_url: product.image_url,
+        image_url: resolvedImageUrl, // ✅ Passed the safely resolved image string link here
         category_name: product.category_name,
         variant_id: selectedVariant?.id,
         variant_name: selectedVariant?.variant_name
@@ -72,16 +75,17 @@ export default function ProductDetailActions({ product }: { product: ProductItem
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ fontFamily: 'Poppins, sans-serif' }}>
       
       {/* Dynamic Price Display */}
-      <div className="flex items-center justify-between pt-3 border-t border-cream-line/50">
+      <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
         <div className="flex items-baseline gap-3">
-          <span className="font-display font-bold text-3xl text-emerald">
+          {/* ✅ FIXED: Changed text color from text-emerald to neutral-900 */}
+          <span className="font-semibold text-3xl text-neutral-900">
             ₹{currentPrice.toLocaleString('en-IN')}
           </span>
           {currentoriginalPrice && (
-            <span className="text-ink/40 text-lg line-through">
+            <span className="text-neutral-400 text-lg line-through font-medium">
               ₹{currentoriginalPrice.toLocaleString('en-IN')}
             </span>
           )}
@@ -92,9 +96,12 @@ export default function ProductDetailActions({ product }: { product: ProductItem
       {product.variants.length > 0 && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-[13px] uppercase tracking-wider font-bold text-ink/70">Select Size / Variant</span>
+            <span className="text-[13px] uppercase tracking-widest font-bold text-neutral-800">Select Size / Variant</span>
             {selectedVariant && (
-              <span className="text-xs font-semibold text-emerald">{selectedVariant.stock_quantity > 0 ? "In Stock" : "Out of Stock"}</span>
+              /* ✅ FIXED: Swapped color to elegant neutral text layouts */
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                {selectedVariant.stock_quantity > 0 ? "In Stock" : "Out of Stock"}
+              </span>
             )}
           </div>
           
@@ -104,15 +111,17 @@ export default function ProductDetailActions({ product }: { product: ProductItem
                 key={variant.id}
                 onClick={() => setSelectedVariant(variant)}
                 disabled={variant.stock_quantity <= 0}
-                className={`relative min-w-[3.5rem] h-12 px-4 rounded-xl text-[15px] font-bold flex items-center justify-center transition-all duration-300 border-2 overflow-hidden ${
+                /* ✅ FIXED: Changed colors from green highlights to your signature Boujee Gold border theme style */
+                className={`relative min-w-[3.5rem] h-12 px-5 rounded-xl text-[14px] font-bold flex items-center justify-center transition-all duration-300 border-2 overflow-hidden ${
                   selectedVariant?.id === variant.id
-                    ? "border-emerald text-emerald bg-emerald/5 shadow-sm scale-[1.02]"
-                    : "border-cream-line text-ink/80 hover:border-emerald/40 hover:bg-emerald/5 hover:text-emerald"
-                } ${variant.stock_quantity <= 0 ? "opacity-40 cursor-not-allowed bg-cream-deep text-ink/40 border-cream-line line-through" : ""}`}
+                    ? "border-[#c5a880] text-[#c5a880] bg-[#FBF7F0] shadow-xs scale-[1.01]"
+                    : "border-neutral-200 text-neutral-800 hover:border-[#c5a880]/60 hover:bg-[#FBF7F0]/40"
+                } ${variant.stock_quantity <= 0 ? "opacity-30 cursor-not-allowed bg-neutral-50 text-neutral-400 border-neutral-200 line-through" : ""}`}
               >
                 {variant.variant_name}
                 {selectedVariant?.id === variant.id && (
-                  <div className="absolute top-0 right-0 w-3 h-3 bg-emerald rounded-bl-xl" />
+                  /* ✅ FIXED: Accent indicator badge tag changed to signature Boujee Gold color token */
+                  <div className="absolute top-0 right-0 w-3 h-3 bg-[#c5a880] rounded-bl-md" />
                 )}
               </button>
             ))}
@@ -120,52 +129,61 @@ export default function ProductDetailActions({ product }: { product: ProductItem
         </div>
       )}
 
-      {/* Actions */}
-      <div className="space-y-4 pt-4 border-t border-cream-line/50">
+      {/* Actions Section Panel */}
+      <div className="space-y-5 pt-4 border-t border-neutral-100">
         {/* Info text if in cart */}
         {currentQty > 0 && (
           <div className="flex">
-            <span className="text-xs font-semibold text-emerald bg-emerald/5 border border-emerald/10 px-3 py-1.5 rounded-full">
+            {/* ✅ FIXED: Swapped out green pills for an elegant neutral cream status badge tag sticker */}
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-600 bg-[#FBF7F0] border border-neutral-200/60 px-3.5 py-1.5 rounded-lg shadow-2xs">
               {currentQty} currently in your cart
             </span>
           </div>
         )}
 
-        {/* Quantity control */}
+        {/* Quantity Control Buttons Row */}
         <div className="flex items-center gap-4">
-          <span className="text-[13px] uppercase tracking-wider font-bold text-ink/70">Quantity</span>
-          <div className="flex items-center border border-cream-line bg-white rounded-full p-1 shadow-sm">
+          <span className="text-[13px] uppercase tracking-widest font-bold text-neutral-800">Quantity</span>
+          {/* ✅ FIXED: Restyled layout frame wrapper to match minimalist boutique standards */}
+          <div className="flex items-center border border-neutral-200 bg-white rounded-xl p-1 shadow-2xs">
             <button
+              type="button"
               onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="p-1.5 hover:text-emerald text-ink/60 transition-colors rounded-full hover:bg-cream"
+              className="p-2 hover:text-[#c5a880] text-neutral-500 transition-colors rounded-lg hover:bg-neutral-50"
             >
-              <Minus className="w-4 h-4" />
+              <Minus className="w-3.5 h-3.5" />
             </button>
-            <span className="px-4 font-semibold text-ink text-sm">{quantity}</span>
+            <span className="px-4 font-bold text-neutral-900 text-sm w-8 text-center select-none">{quantity}</span>
             <button
+              type="button"
               onClick={() => setQuantity(q => q + 1)}
-              className="p-1.5 hover:text-emerald text-ink/60 transition-colors rounded-full hover:bg-cream"
+              className="p-2 hover:text-[#c5a880] text-neutral-500 transition-colors rounded-lg hover:bg-neutral-50"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
+        {/* Checkout CTA Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+          {/* ✅ FIXED: Swapped green block for solid, high-contrast premium charcoal black boutique button style */}
           <button
+            type="button"
             onClick={handleAdd}
             disabled={product.variants.length > 0 && !selectedVariant}
-            className="w-full py-3.5 px-4 bg-emerald text-cream font-body font-semibold rounded-full shadow-card hover:bg-emerald-deep transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 px-6 bg-neutral-950 text-white font-semibold rounded-xl hover:bg-neutral-800 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm text-sm"
           >
-            <ShoppingBag className="w-5 h-5" /> Add to Cart
+            <ShoppingBag className="w-4 h-4" /> Add to Cart
           </button>
 
+          {/* ✅ FIXED: Swapped green outline button for an upscale minimalist gold outline theme accent button */}
           <button
+            type="button"
             onClick={handleBuyNow}
             disabled={product.variants.length > 0 && !selectedVariant}
-            className="w-full py-3.5 px-4 border-2 border-emerald text-emerald font-body font-semibold rounded-full hover:bg-emerald hover:text-cream transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 px-6 border-2 border-[#c5a880] text-[#c5a880] font-semibold rounded-xl bg-white hover:bg-[#FBF7F0] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
           >
-            <CreditCard className="w-5 h-5" /> Buy Now
+            <CreditCard className="w-4 h-4" /> Buy Now
           </button>
         </div>
       </div>

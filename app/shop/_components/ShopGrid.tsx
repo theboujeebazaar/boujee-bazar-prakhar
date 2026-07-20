@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { useToast } from '@/context/ToastContext'
+
 import { useRouter, useSearchParams } from 'next/navigation'
 
 type Product = {
@@ -282,18 +283,58 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
     <>
       {/* Mobile Filter Drawer Overlay Canvas */}
       {isMobileFilterOpen && (
-        <div className="fixed inset-0 z-[100] flex lg:hidden">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsMobileFilterOpen(false)} />
-          <div className="relative mr-auto w-[85%] max-w-sm h-full bg-white p-6 overflow-y-auto flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between mb-8 border-b border-neutral-100 pb-4">
-              <h2 className="font-display font-bold text-xl text-neutral-900" style={{ fontFamily: 'Playfair Display, serif' }}>Filters</h2>
-              <button onClick={() => setIsMobileFilterOpen(false)} className="p-2 bg-neutral-50 rounded-full text-neutral-500 hover:bg-neutral-100">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
+        <div className={`fixed inset-0 z-[100] flex lg:hidden transition-opacity duration-300 ${
+        isMobileFilterOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}>
+        {/* A. Animated Dark Blur Backdrop Layer - Clicking this now ALSO closes the filters safely */}
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+          onClick={() => setIsMobileFilterOpen(false)} 
+        />
+
+        {/* B. Slide-out Content Board Container Sheet */}
+        <div className={`relative mr-auto w-[85%] max-w-sm h-full bg-white p-6 overflow-y-auto flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
+          isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          
+          {/* Header Bar with explicit Title and Close Handle Button */}
+          <div className="flex items-center justify-between mb-6 border-b border-neutral-100 pb-4 flex-shrink-0">
+            <h2 className="font-display font-bold text-xl text-neutral-900" style={{ fontFamily: 'Playfair Display, serif' }}>
+              Refine Collection
+            </h2>
+            
+            {/* Optimized High-Touch Close Handle Button */}
+            <button 
+              type="button"
+              onClick={() => setIsMobileFilterOpen(false)}
+              className="p-2.5 bg-neutral-50 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 border border-neutral-200/80 transition-all flex items-center justify-center"
+              aria-label="Close Filter Screen"
+            >
+              {/* Clean minimalist crisp close cross SVG */}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Render your existing database filter categories and price inputs group lists */}
+          <div className="flex-1 overflow-y-auto pr-1">
             {FilterContent}
           </div>
+
+          {/* C. Mobile Quick Apply Footer Control Button */}
+          <div className="mt-6 pt-4 border-t border-neutral-100 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsMobileFilterOpen(false)}
+              className="w-full py-3 bg-neutral-900 text-white font-semibold rounded-xl text-sm shadow-md hover:bg-neutral-800 transition-all"
+            >
+              Apply Filter
+            </button>
+          </div>
+
         </div>
+      </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8" style={{ fontFamily: 'Poppins, sans-serif' }}>
