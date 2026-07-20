@@ -3,9 +3,20 @@
 import React from 'react'
 import Image from 'next/image'
 
-export default function Footer() {
+interface FooterProps {
+  settings?: {
+    store_name?: string
+    store_email?: string
+    store_phone?: string
+    store_address?: string
+  }
+}
+
+export default function Footer({ settings }: FooterProps) {
   return (
-    <footer className="bg-[#FBF7F0] pt-16 pb-8 border-t border-neutral-200" style={{ fontFamily: 'Poppins, sans-serif' }}>
+    // ✅ FIXED: Added 'mt-16' (or 'mt-20') to create a beautiful breathing space between the FAQ section and the Footer
+<footer className="bg-[#FBF7F0] mt-16 pt-10 pb-6 border-t border-neutral-200" style={{ fontFamily: 'Poppins, sans-serif' }}>
+
       <div className="w-full max-w-[1500px] mx-auto px-5 md:px-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8">
           
@@ -21,10 +32,32 @@ export default function Footer() {
               </div>
             </div>
             
-            <p className="mt-5 text-neutral-600 text-[15px] leading-relaxed max-w-xs text-left">
+            <p className="mt-5 mb-5 text-neutral-600 text-[15px] leading-relaxed max-w-xs text-left">
               Minimal jewelry for the <br />maximal you. ✨
             </p>
-            
+
+            {/* ✅ FIXED: Styled to perfectly match your brand font styling & color structures */}
+            <div className="space-y-3 text-[14px] text-neutral-600 font-medium text-left w-full max-w-xs">
+              <p className="flex items-center gap-2.5 hover:text-[#c5a880] transition-colors">
+                <span>📞</span>
+                <a href={`tel:${settings?.store_phone?.replace(/\s+/g, '')}`} className="hover:underline">
+                  {settings?.store_phone || "+91 7980781793"}
+                </a>
+              </p>
+
+              <p className="flex items-center gap-2.5 break-all hover:text-[#c5a880] transition-colors">
+                <span>✉️</span>
+                <a href={`mailto:${settings?.store_email}`} className="hover:underline">
+                  {settings?.store_email || "support@boujeebazar.in"}
+                </a>
+              </p>
+
+              <p className="flex items-start gap-2.5 leading-relaxed">
+                <span className="mt-0.5">📍</span>
+                <span>{settings?.store_address || "The Boujee Bazar, Kolkata, IN"}</span>
+              </p>
+            </div>
+
             <div className="mt-6 flex items-center gap-4">
               <a href="https://instagram.com" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-neutral-300 flex items-center justify-center text-neutral-600 hover:bg-[#c5a880] hover:text-white hover:border-[#c5a880] transition-colors">
                 <i className="fa-brands fa-instagram text-lg"></i>
@@ -32,7 +65,7 @@ export default function Footer() {
               <a href="https://pinterest.com" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-neutral-300 flex items-center justify-center text-neutral-600 hover:bg-[#c5a880] hover:text-white hover:border-[#c5a880] transition-colors">
                 <i className="fa-brands fa-pinterest-p text-lg"></i>
               </a>
-              <a href="https://wa.me/919999999999" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-neutral-300 flex items-center justify-center text-neutral-600 hover:bg-[#c5a880] hover:text-white hover:border-[#c5a880] transition-colors">
+              <a href={`https://wa.me/${settings?.store_phone?.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-neutral-300 flex items-center justify-center text-neutral-600 hover:bg-[#c5a880] hover:text-white hover:border-[#c5a880] transition-colors">
                 <i className="fa-brands fa-whatsapp text-lg"></i>
               </a>
             </div>
@@ -107,7 +140,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 text-center text-[13px] text-neutral-400 font-medium">
-          <p>&copy; {new Date().getFullYear()} The Boujee Bazaar. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} {settings?.store_name || "The Boujee Bazaar"}. All rights reserved.</p>
         </div>
       </div>
     </footer>

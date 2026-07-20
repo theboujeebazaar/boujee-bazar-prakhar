@@ -403,7 +403,9 @@
 //   )
 // }
 'use client'
-
+import Image from "next/image";
+import { CldUploadWidget } from "next-cloudinary";
+import { Image as ImageIcon, Loader2, X } from "lucide-react";
 import { useTransition, useActionState, useState } from 'react'
 import {
   createProduct,
@@ -422,7 +424,8 @@ interface ProductFormProps {
 export default function ProductForm({ product, categories, otherProducts = [] }: ProductFormProps) {
   const isEditing = !!product
   const action = isEditing ? updateProduct : createProduct
-
+  const [imageUrl, setImageUrl] = useState(product?.image || "");
+const [isUploading, setIsUploading] = useState(false);
   const [state, formAction] = useActionState<ActionResult, FormData>(
     action,
     {}
@@ -663,16 +666,65 @@ export default function ProductForm({ product, categories, otherProducts = [] }:
             <h2 className="text-base font-semibold text-stone-900">Catalog Media</h2>
             <div>
               <label htmlFor="product-image" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Image Link URL
+                Image Upload 
               </label>
               <input
-                id="product-image"
-                name="image" // Maps directly to your text string 'image' column field from the features database list
-                type="text"
-                defaultValue={product?.image || ''}
-                placeholder="https://cloudinary.com"
-                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c5a880]/30 focus:border-[#c5a880] transition-all"
-              />
+  type="hidden"
+  name="image"
+  value={imageUrl}
+/>
+
+{imageUrl ? (
+  <div className="relative w-full max-w-sm aspect-square rounded-xl overflow-hidden border">
+    <Image
+      src={imageUrl}
+      alt="Product"
+      fill
+      className="object-cover"
+    />
+
+    <button
+      type="button"
+      onClick={() => setImageUrl("")}
+      className="absolute top-2 right-2 bg-white rounded-full p-2"
+    >
+      <X className="w-4 h-4" />
+    </button>
+  </div>
+) : (
+  <CldUploadWidget
+    signatureEndpoint="/api/cloudinary/sign"
+    options={{
+      maxFiles: 1,
+      resourceType: "image",
+      clientAllowedFormats: ["jpg", "jpeg", "png", "webp"],
+    }}
+    onOpen={() => setIsUploading(true)}
+    onSuccess={(result: any) => {
+      setImageUrl(result.info.secure_url);
+      setIsUploading(false);
+    }}
+    onError={() => setIsUploading(false)}
+  >
+    {({ open }) => (
+      <button
+        type="button"
+        onClick={() => open()}
+        disabled={isUploading}
+        className="w-full max-w-sm aspect-square border-2 border-dashed rounded-xl flex flex-col items-center justify-center"
+      >
+        {isUploading ? (
+          <Loader2 className="w-6 h-6 animate-spin" />
+        ) : (
+          <>
+            <ImageIcon className="w-7 h-7" />
+            <span>Upload Product Image</span>
+          </>
+        )}
+      </button>
+    )}
+  </CldUploadWidget>
+)}
             </div>
             {product?.image && (
               <div className="border rounded-xl overflow-hidden aspect-square relative bg-stone-50 mt-2">

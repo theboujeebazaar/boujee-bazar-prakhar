@@ -36,57 +36,66 @@ export const metadata: Metadata = {
 //         .limit(5),
 //     ])
 async function getStats() {
-  // ✅ FIXED: Instantiates the master service token bypass client
-  const supabase = createAdminClient() 
+  const supabase = await createAdminClient() 
+
+  // Compute 24 hours ago timestamp
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
   const [ordersRes, customersRes, productsRes, recentOrdersRes] =
     await Promise.all([
-      // A. Query your orders table cleanly
+      // A. Query your orders table cleanly matching column names
       supabase
         .from('orders')
         .select('id, total', { count: 'exact', head: false }),
 
-      // B. 🌟 FIXED: Points to your true 'users' table and filters out admin operators
+      // B. Points to your true 'users' table and filters out admin operators
       supabase
         .from('users')
         .select('id', { count: 'exact', head: true })
         .or('is_admin.eq.false'),
 
-      // C. Query your jewelry products inventory catalog count cleanly
+      // C. Query your products inventory catalog count cleanly
       supabase
         .from('products')
         .select('id', { count: 'exact', head: true }),
 
-      // D. Query your recent orders log list matching your direct row schema
+      // D. 💡 FIXED: Uses 'status' matching your exact schema column name
       supabase
         .from('orders')
-        .select('id, order_number, total, order_status, payment_status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(5),
+        .select('id, total, status, payment_status, created_at')
+        .gte('created_at', twentyFourHoursAgo)
+        .order('created_at', { ascending: false }),
     ])
-    console.log("ordersRes.data:", ordersRes.data)
-console.log("ordersRes.count:", ordersRes.count)
-console.log("ordersRes.error:", ordersRes.error)
 
+  let recentOrders = recentOrdersRes.data || []
 
-  // 1. Safe order count checker
+  // Fallback to latest 5 orders all-time if no orders exist in the last 24h
+  if (recentOrders.length === 0) {
+    const fallbackRes = await supabase
+      .from('orders')
+      .select('id, total, status, payment_status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5)
+    
+    if (fallbackRes.data) {
+      recentOrders = fallbackRes.data
+    }
+  }
+
   const totalOrders = ordersRes.count || ordersRes.data?.length || 0
 
-  // 2. ✅ FIXED REVENUE MATH: Reads your true 'total' column key safely
   const totalRevenue =
     ordersRes.data?.reduce(
-      (sum, order: any) => sum + (Number(order.total || order.total_amount || 0)),
+      (sum, order: any) => sum + (Number(order.total || 0)),
       0
     ) || 0
 
-  // 3. Customers and products extraction counters
   const totalCustomers = customersRes.count || customersRes.data?.length || 0
   const totalProducts = productsRes.count || productsRes.data?.length || 0
-  const recentOrders = recentOrdersRes.data || []
 
   return { totalOrders, totalRevenue, totalCustomers, totalProducts, recentOrders }
-
 }
+
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -207,48 +216,50 @@ export default async function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {recentOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="hover:bg-stone-50/50 transition-colors"
-                  >
-                    <td className="px-6 py-3.5 text-sm font-medium text-stone-900">
-                      #{order.order_number}
-                    </td>
-                    <td className="px-6 py-3.5 text-sm text-stone-700">
-                      ₹{Number(order.total).toLocaleString('en-IN')}
-                    </td>
-                    <td className="px-6 py-3.5">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${
-                          statusColors[order.order_status] ||
-                          'bg-stone-100 text-stone-700'
-                        }`}
-                      >
-                        {order.order_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${
-                          order.payment_status === 'paid'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}
-                      >
-                        {order.payment_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 text-sm text-stone-500">
-                      {new Date(order.created_at).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+  {recentOrders.map((order) => (
+    <tr
+      key={order.id}
+      className="hover:bg-stone-50/50 transition-colors"
+    >
+      {/* 💡 Using sliced ID string since order_number doesn't exist */}
+      <td className="px-6 py-3.5 text-sm font-medium text-stone-900">
+        #ORD-{order.id.toString().substring(0, 5)}
+      </td>
+      <td className="px-6 py-3.5 text-sm text-stone-700">
+        ₹{Number(order.total).toLocaleString('en-IN')}
+      </td>
+      {/* 💡 Accesses your true 'status' schema property */}
+      <td className="px-6 py-3.5">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${
+            statusColors[order.status] ||
+            'bg-stone-100 text-stone-700'
+          }`}
+        >
+          {order.status}
+        </span>
+      </td>
+      <td className="px-6 py-3.5">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${
+            order.payment_status === 'paid'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-yellow-100 text-yellow-700'
+            }`}
+        >
+          {order.payment_status}
+        </span>
+      </td>
+      <td className="px-6 py-3.5 text-sm text-stone-500">
+        {new Date(order.created_at).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })}
+      </td>
+    </tr>
+  ))}
+</tbody>
             </table>
           </div>
         )}

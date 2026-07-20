@@ -231,29 +231,9 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
       {/* SECTION 2: Shipping & Announcement Controls */}
       <div className="bg-white rounded-2xl border border-stone-200/60 p-6 md:p-8 space-y-4 shadow-xs">
         <h3 className="text-sm font-bold uppercase text-stone-400 tracking-wider flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-          <Truck className="w-4 h-4 text-[#c5a880]" /> Shipping & Announcement Controls
+          <Truck className="w-4 h-4 text-[#c5a880]" /> Announcement Controls
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-stone-600 mb-1.5">Flat Delivery Fee (₹)</label>
-            <input type="number" value={globalSettings.shipping_flat_rate} onChange={(e) => handleUpdateGlobal('shipping_flat_rate', Number(e.target.value))} className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#c5a880]/20 focus:border-[#c5a880] transition-all" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-stone-600 mb-1.5">Free Shipping Threshold (₹)</label>
-            <input type="number" value={globalSettings.shipping_threshold} onChange={(e) => handleUpdateGlobal('shipping_threshold', Number(e.target.value))} className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#c5a880]/20 focus:border-[#c5a880] transition-all" />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-200/60">
-          <div>
-            <h4 className="font-bold text-stone-900 text-sm">Accept Cash on Delivery (COD)</h4>
-            <p className="text-xs text-stone-400 mt-0.5">Toggle customer COD checkout permissions.</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer select-none">
-            <input type="checkbox" className="sr-only peer" checked={globalSettings.enable_cod} onChange={(e) => handleUpdateGlobal('enable_cod', e.target.checked)} disabled={isPending} />
-            <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-900"></div>
-          </label>
-        </div>
+      
 
         <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-200/60">
           <div>

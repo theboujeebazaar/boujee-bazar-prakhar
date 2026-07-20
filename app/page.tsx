@@ -149,31 +149,44 @@ export const metadata = {
 
 export default async function Home() {
   const supabase = await createClient()
+  
+  // ✅ FIXED: Fetch your global configurations cleanly in ONE single optimized request block
+  const { data: globalSettingsObj } = await supabase
+    .from('store_settings')
+    .select('value')
+    .eq('key', 'global_settings')
+    .single()
+  
 
-  // 1. Fetch active hero slides
+  const settings = globalSettingsObj?.value || {}
+
+   const { data: faqsData, error: faqsError } = await supabase
+    .from('global_faqs')
+    .select('id, question, answer, display_order')
+    .order('display_order', { ascending: true })
+
+  if (faqsError) {
+    console.error('❌ Error fetching global_faqs:', faqsError)
+  }
+  const rawFaqs = faqsData || []
+  // Fetch active hero slides
   const { data: heroSlidesData } = await supabase
     .from('hero_slides')
     .select('*')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
-  const { data: settingsData } = await supabase
-  .from('store_settings')
-  .select('value')
-  .eq('key', 'global_settings')
-  .single()
 
-  const settings = settingsData?.value || {}
-  // 2. Fetch categories
-  const { data: categoriesData, error } = await supabase
-  .from('categories')
-  .select('id, name, slug, image_url, description, sort_order')
-  .eq('is_active', true)
-  .order('sort_order', { ascending: true })
+  // Fetch categories
+  const { data: categoriesData } = await supabase
+    .from('categories')
+    .select('id, name, slug, image_url, description, sort_order')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
 
-  // 3. Fetch products
+  // Fetch products
   const { data: productsData } = await supabase
     .from('products')
-    .select('id, name, price, originalPrice, image, category, subcategory, tag, available,is_new_arrival,is_best_seller')
+    .select('id, name, price, originalPrice, image, category, subcategory, tag, available, is_new_arrival, is_best_seller')
     .eq('available', true)
 
   const rawSlides = heroSlidesData || []
@@ -198,21 +211,17 @@ export default async function Home() {
   }))
 
   // Filter products for the specific sections
- const newArrivals = allMappedProducts.filter(
-  p => p.is_new_arrival === true
-)
-
-const bestSellers = allMappedProducts.filter(
-  p => p.is_best_seller === true
-)
-  const saleProducts = allMappedProducts.filter(p => (p.originalPrice && p.originalPrice > p.price) || p.badge?.toLowerCase() === 'sale')
+  const newArrivals = allMappedProducts.filter(p => p.is_new_arrival === true)
+  const bestSellers = allMappedProducts.filter(p => p.is_best_seller === true)
 
   return (
     <>
+      {/* ✅ FIXED: Header now reads consistently from the unified settings config payload */}
       <Header announcement={{
-    active: settings.announcement_active,
-    message: settings.announcement_message,
-  }}/>
+        active: settings.announcement_active ?? false,
+        message: settings.announcement_message || "Welcome to The Boujee Bazaar",
+      }}/>
+      
       <main className="pt-24 md:pt-28">
         <Hero slides={rawSlides} />
         <Collections categories={rawCategories} />
@@ -220,15 +229,16 @@ const bestSellers = allMappedProducts.filter(
         <Products products={bestSellers} />
         
         <Edition />
-        {/* <SaleSection products={saleProducts} /> */}
         <Features />
         <Aboutp />
         <Reviews />
         <Instagram />
         <Newsletter />
-        <FAQ />
+        <FAQ initialFaqs={rawFaqs} />
       </main>
-      <Footer />
+
+      {/* ✅ FIXED: Passed unified settings payload into the footer parameters layout */}
+      <Footer settings={settings} />
       <FloatingWhatsApp />
     </>
   )

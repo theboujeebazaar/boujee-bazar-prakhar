@@ -109,14 +109,17 @@ export default function CategoryForm({ category }: CategoryFormProps) {
           ) : (
             <CldUploadWidget 
               signatureEndpoint="/api/cloudinary/sign"
+              // uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
               options={{
                 maxFiles: 1,
                 resourceType: "image",
                 clientAllowedFormats: ["jpg", "jpeg", "png", "webp"]
               }}
               onSuccess={(result: any) => {
+                console.log(result);
                 setImageUrl(result.info.secure_url)
                 setIsUploading(false)
+                
               }}
               onOpen={() => setIsUploading(true)}
               onError={() => setIsUploading(false)}
@@ -124,7 +127,8 @@ export default function CategoryForm({ category }: CategoryFormProps) {
               {({ open }) => (
                 <button
                   type="button"
-                  onClick={() => open()}
+                  onClick={() => 
+open()}
                   disabled={isUploading || pending}
                   className="w-full max-w-sm aspect-video flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 text-stone-500 hover:bg-stone-100 hover:border-orange-400 hover:text-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >

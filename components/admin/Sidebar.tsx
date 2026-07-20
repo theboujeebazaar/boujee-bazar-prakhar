@@ -32,7 +32,7 @@ const navItems = [
   { label: 'Hero Slides', href: '/admin/hero-slides', icon: Image },
   { label: 'Announcements', href: '/admin/announcements', icon: Megaphone },
   { label: 'Global FAQs', href: '/admin/settings/faqs', icon: Settings },
-  // { label: 'Shipping Settings', href: '/admin/settings/shipping', icon: Truck },
+  { label: 'Shipping Settings', href: '/admin/settings/shipping', icon: Truck },
   { label: 'Manage Coupons', href: '/admin/settings/coupons', icon: Tag },
   { label: 'Manage Profile', href: '/admin/settings/profile', icon: User },
 ]
@@ -78,15 +78,15 @@ export default function AdminSidebar() {
               title={collapsed ? item.label : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                 isActive
-                  ? 'bg-teal-700/10 text-teal-800 font-semibold'
-                  : 'text-ink/75 hover:text-teal-800 hover:bg-cream-deep/60'
+                  ? 'bg-[#C8AA78]/10 !text-[#C8AA78] font-semibold'
+                  : 'text-ink/75 hover:!text-[#C8AA78] hover:bg-cream-deep/60'
               }`}
             >
               <Icon
                 className={`w-5 h-5 shrink-0 ${
                   isActive
-                    ? 'text-teal-800'
-                    : 'text-ink/40 group-hover:text-teal-700'
+                    ? '!text-[#C8AA78]'
+                    : 'text-ink/40 group-hover:!text-[#C8AA78]'
                 }`}
               />
               {!collapsed && <span className="truncate">{item.label}</span>}
@@ -99,7 +99,7 @@ export default function AdminSidebar() {
       <div className="p-3 border-t border-[#E6DAC4]">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-ink/50 hover:text-teal-800 hover:bg-cream-deep/60 transition-all duration-200 text-sm"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-ink/50 hover:!text-[#C8AA78] hover:bg-cream-deep/60 transition-all duration-200 text-sm"
         >
           {collapsed ? (
             <ChevronRight className="w-4 h-4" />
