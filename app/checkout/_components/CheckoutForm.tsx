@@ -1033,12 +1033,14 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
 
   const getWhatsappLink = () => {
     if (!placedOrder) return ''
+    const shortId = `#${String(placedOrder.id).substring(0, 8).toUpperCase()}`
     const itemsText = placedOrder.items.map((i: any) => `- ${i.name} (x${i.quantity})`).join('\n')
-    const message = `Hi The Boujee Bazaar!\n\nI just placed an order:\nOrder Number: *${placedOrder.order_number}*\nItems:\n${itemsText}\nTotal Amount: *₹${placedOrder.total.toLocaleString('en-IN')}*\nPayment Method: *${paymentMethod}*\n\nShipping Address:\n${placedOrder.shippingAddress}\n\nPlease confirm my order. Thank you!`
-    return `https://wa.me{SITE.whatsapp}?text=${encodeURIComponent(message)}`
+    const message = `Hi The Boujee Bazaar!\n\nI just placed an order:\nOrder ID: *${shortId}*\nItems:\n${itemsText}\nTotal Amount: *₹${placedOrder.total.toLocaleString('en-IN')}*\nPayment Method: *${paymentMethod}*\n\nShipping Address:\n${placedOrder.shippingAddress}\n\nPlease confirm my order. Thank you!`
+    return `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`
   }
 
   if (placedOrder) {
+    const shortId = `#${String(placedOrder.id).substring(0, 8).toUpperCase()}`
     return (
       <div className="max-w-md mx-auto bg-white rounded-3xl p-8 border border-neutral-100 shadow-xl text-center space-y-6 animate-fade-in mt-6" style={{ fontFamily: 'Poppins, sans-serif' }}>
         <div className="w-16 h-16 bg-neutral-50 text-[#c5a880] border border-[#c5a880]/20 rounded-full flex items-center justify-center mx-auto">
@@ -1050,8 +1052,8 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
         </div>
         <div className="p-4 bg-neutral-50/50 rounded-2xl border border-neutral-100 text-left space-y-3">
           <div className="flex justify-between text-xs">
-            <span className="text-neutral-400 uppercase font-semibold">Order Number</span>
-            <span className="font-bold text-neutral-900">{placedOrder.order_number}</span>
+            <span className="text-neutral-400 uppercase font-semibold">Order ID</span>
+            <span className="font-mono font-bold text-neutral-900">{shortId}</span>
           </div>
           {placedOrder.payment_id && (
             <div className="flex justify-between text-xs">

@@ -210,8 +210,8 @@ export default async function AdminOrdersPage() {
                 rawOrders.map((order: any) => (
                   <tr key={order.id} className="hover:bg-stone-50/50 transition-colors group">
                     <td className="px-6 py-4">
-                      {/* Displays real backend order_number (e.g. BB-323425-914) */}
-                      <span className="font-semibold text-stone-900">{order.order_number || `#${String(order.id).substring(0, 8).toUpperCase()}`}</span>
+                      {/* Displays 8-character short Order ID (e.g. #B831FA87) */}
+                      <span className="font-mono font-semibold text-stone-900 text-xs">#{String(order.id).substring(0, 8).toUpperCase()}</span>
                     </td>
                     <td className="px-6 py-4 text-stone-600">
                       {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', {

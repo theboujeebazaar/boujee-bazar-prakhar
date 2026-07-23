@@ -390,7 +390,7 @@ try {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-stone-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-            Order {order.order_number}
+            Order Details
           </h1>
           <p className="text-sm text-stone-500 mt-1">
             Placed on {new Date(order.created_at).toLocaleString('en-IN', {
@@ -536,8 +536,8 @@ try {
             </div>
             <div className="mt-6 pt-6 border-t border-stone-200 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Order Number</span>
-                <span className="font-mono font-bold text-stone-900 bg-stone-100 px-2.5 py-1 rounded-lg text-xs border border-stone-200">{order.order_number}</span>
+                <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Order ID</span>
+                <span className="font-mono font-bold text-stone-900 bg-stone-100 px-2.5 py-1 rounded-lg text-xs border border-stone-200">#{String(order.id).substring(0, 8).toUpperCase()}</span>
               </div>
               <div>
                 <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Payment Method</p>
