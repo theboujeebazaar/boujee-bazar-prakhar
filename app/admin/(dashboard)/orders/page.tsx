@@ -210,8 +210,8 @@ export default async function AdminOrdersPage() {
                 rawOrders.map((order: any) => (
                   <tr key={order.id} className="hover:bg-stone-50/50 transition-colors group">
                     <td className="px-6 py-4">
-                      {/* Uses your truncated id or a fallback short-identifier */}
-                      <span className="font-semibold text-stone-900">#{String(order.id).substring(0, 8).toUpperCase()}</span>
+                      {/* Displays real backend order_number (e.g. BB-323425-914) */}
+                      <span className="font-semibold text-stone-900">{order.order_number || `#${String(order.id).substring(0, 8).toUpperCase()}`}</span>
                     </td>
                     <td className="px-6 py-4 text-stone-600">
                       {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', {

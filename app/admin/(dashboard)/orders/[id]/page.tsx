@@ -534,9 +534,17 @@ try {
                 <span className="text-xl font-bold text-neutral-950">₹{(order.total_amount || 0).toLocaleString('en-IN')}</span>
               </div>
             </div>
-            <div className="mt-6 pt-6 border-t border-stone-200">
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Payment Method</p>
-              <p className="text-sm font-medium text-stone-900">{order.payment_method || 'Cash on Delivery'}</p>
+            <div className="mt-6 pt-6 border-t border-stone-200 space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Payment Method</p>
+                <p className="text-sm font-medium text-stone-900">{order.payment_method || 'Cash on Delivery'}</p>
+              </div>
+              {order.notes && (
+                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-700">
+                  <p className="font-semibold text-stone-500 uppercase text-[10px] tracking-wider mb-0.5">Online Txn Details</p>
+                  <p className="font-mono text-xs text-stone-800 font-semibold">{order.notes}</p>
+                </div>
+              )}
             </div>
           </div>
 

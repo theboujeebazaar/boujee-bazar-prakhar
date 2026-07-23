@@ -936,7 +936,8 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
                 id: orderData.orderId,
                 total: grandTotal,
                 items: [...cart],
-                shippingAddress: addressString
+                shippingAddress: addressString,
+                payment_id: response.razorpay_payment_id
               })
               clearCart()
             } else {
@@ -1049,10 +1050,15 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
         </div>
         <div className="p-4 bg-neutral-50/50 rounded-2xl border border-neutral-100 text-left space-y-3">
           <div className="flex justify-between text-xs">
-        
             <span className="text-neutral-400 uppercase font-semibold">Order Number</span>
             <span className="font-bold text-neutral-900">{placedOrder.order_number}</span>
           </div>
+          {placedOrder.payment_id && (
+            <div className="flex justify-between text-xs">
+              <span className="text-neutral-400 uppercase font-semibold">Payment Txn ID</span>
+              <span className="font-mono font-bold text-neutral-900 text-xs">{placedOrder.payment_id}</span>
+            </div>
+          )}
           <div className="flex justify-between text-xs">
             <span className="text-neutral-400 uppercase font-semibold">Grand Total</span>
             <span className="font-bold text-neutral-900">₹{placedOrder.total.toLocaleString('en-IN')}</span>
