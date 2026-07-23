@@ -300,7 +300,7 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
           {/* Header Bar with explicit Title and Close Handle Button */}
           <div className="flex items-center justify-between mb-6 border-b border-neutral-100 pb-4 flex-shrink-0">
             <h2 className="font-display font-bold text-xl text-neutral-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-              Refine Collection
+              Filters
             </h2>
             
             {/* Optimized High-Touch Close Handle Button */}
@@ -310,7 +310,7 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
               className="p-2.5 bg-neutral-50 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 border border-neutral-200/80 transition-all flex items-center justify-center"
               aria-label="Close Filter Screen"
             >
-              {/* Clean minimalist crisp close cross SVG */}
+              Clean minimalist crisp close cross SVG 
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
