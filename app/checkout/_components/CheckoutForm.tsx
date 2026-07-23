@@ -785,8 +785,22 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
   const [couponError, setCouponError] = useState('')
   const [couponSuccess, setCouponSuccess] = useState('')
 
+  const enableCod = (shipping as any)?.enable_cod !== false
+  const enableOnline = (shipping as any)?.enable_online !== false
+
   // Payment Method
-  const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery' | 'Online Payment (Razorpay)'>('Cash on Delivery')
+  const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery' | 'Online Payment (Razorpay)'>(() => {
+    if (!enableCod && enableOnline) return 'Online Payment (Razorpay)'
+    return 'Cash on Delivery'
+  })
+
+  useEffect(() => {
+    if (!enableCod && enableOnline && paymentMethod !== 'Online Payment (Razorpay)') {
+      setPaymentMethod('Online Payment (Razorpay)')
+    } else if (!enableOnline && enableCod && paymentMethod !== 'Cash on Delivery') {
+      setPaymentMethod('Cash on Delivery')
+    }
+  }, [enableCod, enableOnline, paymentMethod])
 
   // Success Modal State
   const [placedOrder, setPlacedOrder] = useState<any>(null)
@@ -887,49 +901,74 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
   }
 
   const handleRazorpayPayment = async (orderData: any, addressString: string) => {
-    const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      amount: orderData.amount,
-      currency: "INR",
-      name: SITE.name,
-      description: "Order Payment",
-      order_id: orderData.razorpayOrderId,
-      handler: async function (response: any) {
-        const verifyRes = await verifyRazorpayPayment(
-          response.razorpay_payment_id,
-          response.razorpay_order_id,
-          response.razorpay_signature,
-          orderData.orderId
-        )
-        if (verifyRes.success) {
-          setPlacedOrder({
-            order_number: orderData.orderNumber,
-            id: orderData.orderId,
-            total: grandTotal,
-            items: [...cart],
-            shippingAddress: addressString
-          })
-          clearCart()
-        } else {
-          showToast('Payment verification failed. Please contact support.', 'error')
-        }
-      },
-      prefill: {
-        name: profile.fullName,
-        contact: profile.phone,
-        email: profile.email
-      },
-      theme: {
-        color: "#c5a880"
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+
+    if (!keyId || !keyId.trim()) {
+      showToast('Razorpay Key ID missing! Please add NEXT_PUBLIC_RAZORPAY_KEY_ID to your .env file.', 'error')
+      return
+    }
+
+    // Function to initialize and open Razorpay popup
+    const openModal = () => {
+      try {
+        const options = {
+          key: keyId,
+          amount: orderData.amount,
+          currency: "INR",
+          name: SITE.name,
+          description: "Order Payment",
+          order_id: orderData.razorpayOrderId,
+          handler: async function (response: any) {
+            const verifyRes = await verifyRazorpayPayment(
+              response.razorpay_payment_id,
+              response.razorpay_order_id,
+              response.razorpay_signature,
+              orderData.orderId
+            )
+            if (verifyRes.success) {
+              setPlacedOrder({
+                order_number: orderData.orderNumber,
+                id: orderData.orderId,
+                total: grandTotal,
+                items: [...cart],
+                shippingAddress: addressString
+              })
+              clearCart()
+            } else {
+              showToast('Payment verification failed. Please contact support.', 'error')
+            }
+          },
+          prefill: {
+            name: profile.fullName,
+            contact: profile.phone,
+            email: profile.email
+          },
+          theme: {
+            color: "#c5a880"
+          }
+        };
+
+        const rzp1 = new (window as any).Razorpay(options);
+        rzp1.on('payment.failed', function (response: any){
+          showToast("Payment failed! Reason: " + (response.error?.description || 'Transaction failed'), "error");
+        });
+        rzp1.open();
+      } catch (err: any) {
+        console.error('Failed to open Razorpay modal:', err)
+        showToast('Error opening Razorpay gateway: ' + (err?.message || 'Check browser console'), 'error')
       }
-    };
-    
-    // @ts-ignore
-    const rzp1 = new window.Razorpay(options);
-    rzp1.on('payment.failed', function (response: any){
-      showToast("Payment failed! Reason: " + response.error.description, "error");
-    });
-    rzp1.open();
+    }
+
+    // Dynamic SDK loading fallback if script is not yet loaded on window
+    if (typeof (window as any).Razorpay === 'undefined') {
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.onload = () => openModal()
+      script.onerror = () => showToast('Failed to load Razorpay SDK. Please check your network connection.', 'error')
+      document.body.appendChild(script)
+    } else {
+      openModal()
+    }
   }
 
   // Execute checkout and place order
@@ -939,7 +978,7 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
     
     localStorage.setItem('boujee-customer-profile', JSON.stringify(profile))
     
-    const res = await processCheckout(profile, cart, method)
+    const res = await processCheckout(profile, cart, method, activeCoupon?.code)
     if (!res.success) {
       showToast(res.error || 'Failed to place order.', 'error')
     } else {
@@ -1040,7 +1079,7 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
   return (
     <>
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start" style={{ fontFamily: 'Poppins, sans-serif' }}>
-        <Script src="https://razorpay.com" strategy="lazyOnload" />
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
         
         {/* Left Column: Shipping Address & Payment Form */}
         <div className="lg:col-span-7 space-y-6">
@@ -1168,23 +1207,32 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
             <h2 className="text-base font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
               <CreditCard className="w-5 h-5 text-[#c5a880]" /> Payment Option
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className={`flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                paymentMethod === 'Cash on Delivery' ? 'border-neutral-900 bg-neutral-50/50' : 'border-neutral-100 bg-white hover:border-neutral-200'
-              }`}>
-                <input type="radio" name="payment" checked={paymentMethod === 'Cash on Delivery'} onChange={() => setPaymentMethod('Cash on Delivery')} className="sr-only" />
-                <span className="font-bold text-neutral-900 text-xs uppercase tracking-wide">Cash on Delivery (+₹{shipping.cod_charge ?? 50})</span>
-                <span className="text-xs text-neutral-400 mt-1 leading-relaxed">Pay COD charge & product value at your doorstep.</span>
-              </label>
-              <label className={`flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                paymentMethod === 'Online Payment (Razorpay)' ? 'border-neutral-900 bg-neutral-50/50' : 'border-neutral-100 bg-white hover:border-neutral-200'
-              }`}>
-                <input type="radio" name="payment" checked={paymentMethod === 'Online Payment (Razorpay)'} onChange={() => setPaymentMethod('Online Payment (Razorpay)')} className="sr-only" />
-                <span className="font-bold text-neutral-900 text-xs uppercase tracking-wide">
-                  Online Payment {shipping.online_discount ? `(${shipping.online_discount}% Off)` : ''}
-                </span>
-                <span className="text-xs text-neutral-400 mt-1 leading-relaxed">Pay securely via UPI, Cards, or Netbanking.</span>
-              </label>
+            <div className={`grid grid-cols-1 ${enableCod && enableOnline ? 'md:grid-cols-2' : ''} gap-4`}>
+              {enableCod && (
+                <label className={`flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  paymentMethod === 'Cash on Delivery' ? 'border-neutral-900 bg-neutral-50/50' : 'border-neutral-100 bg-white hover:border-neutral-200'
+                }`}>
+                  <input type="radio" name="payment" checked={paymentMethod === 'Cash on Delivery'} onChange={() => setPaymentMethod('Cash on Delivery')} className="sr-only" />
+                  <span className="font-bold text-neutral-900 text-xs uppercase tracking-wide">Cash on Delivery (+₹{shipping.cod_charge ?? 50})</span>
+                  <span className="text-xs text-neutral-400 mt-1 leading-relaxed">Pay COD charge & product value at your doorstep.</span>
+                </label>
+              )}
+              {enableOnline && (
+                <label className={`flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  paymentMethod === 'Online Payment (Razorpay)' ? 'border-neutral-900 bg-neutral-50/50' : 'border-neutral-100 bg-white hover:border-neutral-200'
+                }`}>
+                  <input type="radio" name="payment" checked={paymentMethod === 'Online Payment (Razorpay)'} onChange={() => setPaymentMethod('Online Payment (Razorpay)')} className="sr-only" />
+                  <span className="font-bold text-neutral-900 text-xs uppercase tracking-wide">
+                    Online Payment {shipping.online_discount ? `(${shipping.online_discount}% Off)` : ''}
+                  </span>
+                  <span className="text-xs text-neutral-400 mt-1 leading-relaxed">Pay securely via UPI, Cards, or Netbanking.</span>
+                </label>
+              )}
+              {!enableCod && !enableOnline && (
+                <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
+                  No payment options are currently active. Please contact support.
+                </div>
+              )}
             </div>
           </div>
         </div>

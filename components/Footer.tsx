@@ -59,7 +59,7 @@ export default function Footer({ settings }: FooterProps) {
             </div>
 
             <div className="mt-6 flex items-center gap-4">
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-neutral-300 flex items-center justify-center text-neutral-600 hover:bg-[#c5a880] hover:text-white hover:border-[#c5a880] transition-colors">
+              <a href="https://www.instagram.com/the_boujeebazaar/" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-neutral-300 flex items-center justify-center text-neutral-600 hover:bg-[#c5a880] hover:text-white hover:border-[#c5a880] transition-colors">
                 <i className="fa-brands fa-instagram text-lg"></i>
               </a>
               <a href="https://pinterest.com" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-neutral-300 flex items-center justify-center text-neutral-600 hover:bg-[#c5a880] hover:text-white hover:border-[#c5a880] transition-colors">

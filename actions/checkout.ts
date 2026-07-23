@@ -343,6 +343,8 @@
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin' // 🌟 FIXED: Superuser bypasses RLS
+import { getShippingSettings } from '@/actions/admin/shipping'
+import { validateCoupon } from '@/actions/admin/coupons'
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
 
@@ -358,7 +360,12 @@ try {
   console.warn("Razorpay credentials missing or invalid")
 }
 
-export async function createOrder(addressData: any, paymentMethod: string, cartItemsFromFrontend: any[]) {
+export async function createOrder(
+  addressData: any,
+  paymentMethod: string,
+  cartItemsFromFrontend: any[],
+  couponCode?: string
+) {
   // 🌟 FIXED: Instantiate the Admin superuser bypass client to allow direct data writes
   const supabaseAdmin = createAdminClient()
   
@@ -378,7 +385,7 @@ export async function createOrder(addressData: any, paymentMethod: string, cartI
     return { success: false, error: 'Your shopping cart is completely empty.' }
   }
 
-  // Calculate totals securely in memory
+  // Calculate totals securely using database shipping configuration & coupons
   let subtotal = 0
   for (const item of cartItemsFromFrontend) {
     const price = Number(item.price) || 0
@@ -386,9 +393,33 @@ export async function createOrder(addressData: any, paymentMethod: string, cartI
     subtotal += (price * quantity)
   }
 
-  const shipping_cost = subtotal >= 1499 ? 0 : 99
-  const cod_cost = paymentMethod === 'COD' ? 50 : 0
-  const total_amount = subtotal + shipping_cost + cod_cost
+  const shippingSettings = await getShippingSettings()
+  const flatRate = Number(shippingSettings.flat_rate ?? 99)
+  const freeThreshold = Number(shippingSettings.free_threshold ?? 1499)
+  const codCharge = Number(shippingSettings.cod_charge ?? 50)
+  const onlineDiscountPercent = Number(shippingSettings.online_discount ?? 0)
+
+  const shipping_cost = subtotal >= freeThreshold ? 0 : flatRate
+  const cod_cost = paymentMethod === 'COD' ? codCharge : 0
+
+  let couponDiscount = 0
+  if (couponCode) {
+    const couponRes = await validateCoupon(couponCode, subtotal)
+    if (couponRes.success && couponRes.coupon) {
+      const coupon = couponRes.coupon
+      if (coupon.type === 'percentage') {
+        couponDiscount = Math.round((subtotal * coupon.value) / 100)
+      } else {
+        couponDiscount = coupon.value
+      }
+    }
+  }
+
+  const online_discount_amount = paymentMethod === 'RAZORPAY'
+    ? Math.round((subtotal * onlineDiscountPercent) / 100)
+    : 0
+
+  const total_amount = Math.max(0, subtotal + shipping_cost + cod_cost - couponDiscount - online_discount_amount)
 
   const order_number = `BB-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
   const orderMockId = crypto.randomUUID()
@@ -468,9 +499,24 @@ for (const item of cartItemsFromFrontend) {
         amount: Math.round(total_amount * 100),
         currency: 'INR',
         receipt: orderMockId,
-        payment_capture: 1
+        payment_capture: 1,
+        notes: {
+          internal_order_id: orderMockId,
+          customer_email: addressData.email || '',
+        }
       }
       const rzpOrder = await razorpayInstance.orders.create(options)
+      
+      // Update order record with razorpay_order_id
+      try {
+        await supabaseAdmin
+          .from('orders')
+          .update({ razorpay_order_id: rzpOrder.id })
+          .eq('id', orderMockId)
+      } catch (err) {
+        console.warn('Could not update razorpay_order_id on order record:', err)
+      }
+
       return {
         success: true,
         isRazorpay: true,
@@ -502,7 +548,7 @@ for (const item of cartItemsFromFrontend) {
 }
 
 export async function verifyRazorpayPayment(
-  rayorpay_payment_id: string,
+  razorpay_payment_id: string,
   razorpay_order_id: string,
   razorpay_signature: string,
   internal_order_id: string
@@ -512,17 +558,54 @@ export async function verifyRazorpayPayment(
 
   const generated_signature = crypto
     .createHmac('sha256', secret)
-    .update(razorpay_order_id + '|' + rayorpay_payment_id)
+    .update(razorpay_order_id + '|' + razorpay_payment_id)
     .digest('hex')
 
-  if (generated_signature !== razorpay_signature) {
+  const signatureBuffer = Buffer.from(razorpay_signature, 'utf8')
+  const expectedBuffer = Buffer.from(generated_signature, 'utf8')
+
+  let isValid = false
+  if (signatureBuffer.length === expectedBuffer.length) {
+    isValid = crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+  }
+
+  if (!isValid) {
+    console.error('Razorpay signature verification failed:', {
+      received: razorpay_signature,
+      expected: generated_signature,
+    })
     return { success: false, error: 'Payment signature verification failed. Untrusted source transaction.' }
   }
 
   // Safe status updating on orders tables via admin client bypass
   try {
     const supabaseAdmin = createAdminClient()
-    await supabaseAdmin.from('orders').update({ status: 'paid' }).eq('id', internal_order_id)
+    const updateData = {
+      payment_status: 'paid',
+      status: 'confirmed',
+      order_status: 'confirmed',
+      razorpay_payment_id: razorpay_payment_id,
+      razorpay_order_id: razorpay_order_id,
+      paid_at: new Date().toISOString(),
+    }
+
+    // Try updating by internal order ID first
+    let { error: updateError } = await supabaseAdmin
+      .from('orders')
+      .update(updateData)
+      .eq('id', internal_order_id)
+
+    // Fallback update by razorpay_order_id if primary query returned error/missed
+    if (updateError || !internal_order_id) {
+      const { error: fallbackError } = await supabaseAdmin
+        .from('orders')
+        .update(updateData)
+        .eq('razorpay_order_id', razorpay_order_id)
+      
+      if (fallbackError) {
+        console.error("Failed adjusting payment confirmation flags on orders table:", fallbackError.message)
+      }
+    }
   } catch (err) {
     console.error("Failed adjusting payment confirmation flags on live table:", err)
   }
@@ -533,17 +616,20 @@ export async function verifyRazorpayPayment(
 
   revalidatePath('/cart')
   revalidatePath('/checkout')
+  revalidatePath('/admin/orders')
+  revalidatePath('/admin')
   return { success: true }
 }
 
 export async function processCheckout(
   profile: { fullName: string, email: string, phone: string, alternatePhone?: string, street: string, city: string, state: string, zipCode: string },
   items: any[],
-  paymentMethod: 'COD' | 'RAZORPAY'
+  paymentMethod: 'COD' | 'RAZORPAY',
+  couponCode?: string
 ) {
   const cookieStore = await cookies()
   cookieStore.set('boujee-customer-profile-token', encodeURIComponent(JSON.stringify(profile)), { path: '/', maxAge: 60 * 60 * 24 * 7 })
-  return await createOrder(profile, paymentMethod, items)
+  return await createOrder(profile, paymentMethod, items, couponCode)
 }
 
 

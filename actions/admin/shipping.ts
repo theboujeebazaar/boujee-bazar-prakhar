@@ -22,13 +22,21 @@ export async function getShippingSettings() {
       flat_rate: 99,
       free_threshold: 1999,
       cod_charge: 50,
-      online_discount: 0
+      online_discount: 0,
+      enable_cod: true,
+      enable_online: true,
     }
   }
 
   const shipping = data.shipping
   if (shipping.online_discount === undefined) {
     shipping.online_discount = 0
+  }
+  if (shipping.enable_cod === undefined) {
+    shipping.enable_cod = true
+  }
+  if (shipping.enable_online === undefined) {
+    shipping.enable_online = true
   }
 
   return shipping
@@ -38,7 +46,9 @@ export async function updateShippingSettings(
   flatRate: number,
   freeThreshold: number,
   codCharge: number,
-  onlineDiscount: number
+  onlineDiscount: number,
+  enableCod: boolean = true,
+  enableOnline: boolean = true
 ): Promise<ShippingActionResult> {
   const supabase = await createClient()
 
@@ -50,7 +60,9 @@ export async function updateShippingSettings(
         flat_rate: flatRate,
         free_threshold: freeThreshold,
         cod_charge: codCharge,
-        online_discount: onlineDiscount
+        online_discount: onlineDiscount,
+        enable_cod: enableCod,
+        enable_online: enableOnline,
       }
     })
     .eq('id', 'global-settings-id') // Or matching single settings document
@@ -60,5 +72,6 @@ export async function updateShippingSettings(
   }
 
   revalidatePath('/admin/settings/shipping')
+  revalidatePath('/checkout')
   return { success: true }
 }

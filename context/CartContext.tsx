@@ -29,27 +29,34 @@ const CartContext = createContext<CartContextType | undefined>(undefined)
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([])
+  const [isLoaded, setIsLoaded] = useState(false)
 
   // Load cart from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedCart = localStorage.getItem('gulshan-cart')
+      const savedCart = localStorage.getItem('boujee-cart') || localStorage.getItem('gulshan-cart')
       if (savedCart) {
         try {
-          setCart(JSON.parse(savedCart))
+          const parsed = JSON.parse(savedCart)
+          if (Array.isArray(parsed)) {
+            setCart(parsed)
+          }
         } catch (e) {
-          console.error('Failed to load cart', e)
+          console.error('Failed to load cart from localStorage', e)
         }
       }
+      setIsLoaded(true)
     }
   }, [])
 
-  // Save cart to localStorage when it changes
+  // Save cart to localStorage ONLY after initial load has finished
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('gulshan-cart', JSON.stringify(cart))
+    if (isLoaded && typeof window !== 'undefined') {
+      const json = JSON.stringify(cart)
+      localStorage.setItem('boujee-cart', json)
+      localStorage.setItem('gulshan-cart', json)
     }
-  }, [cart])
+  }, [cart, isLoaded])
 
   const addToCart = (item: Omit<CartItem, 'quantity' | 'cartItemId'>) => {
     const cartItemId = `${item.id}-${item.variant_id || 'default'}`

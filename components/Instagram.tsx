@@ -7,6 +7,8 @@ interface IGItem {
 }
 
 export default function Instagram() {
+  const instaUrl = "https://www.instagram.com/the_boujeebazaar/"
+
   // IG items from index.html
   const igItems: IGItem[] = [
     { image: 'assets/img/demos_insta/demo_1.jpeg', alt: 'IG 1' },
@@ -25,40 +27,45 @@ export default function Instagram() {
             JOIN THE <span className="text-[#f5a24a] italic font-['Playfair_Display']">CLUB</span> ✨
           </h2>
           <p className="text-center mt-2 text-neutral-500">
-            Tag @theboujeebazaar to be featured
+            Tag <a href={instaUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-neutral-800 hover:text-[#c5a880] transition-colors">@the_boujeebazaar</a> to be featured
           </p>
         </div>
 
-        {/* Instagram Marquee - from index.html */}
+        {/* Instagram Marquee */}
         <div className="ig-marquee">
           <div className="ig-track">
             {/* Original Items */}
             {igItems.map((item, idx) => (
-              <div key={idx} className="ig-item">
+              <a href={instaUrl} target="_blank" rel="noopener noreferrer" key={idx} className="ig-item block">
                 <img src={item.image} alt={item.alt} />
                 <div className="ig-overlay">
                   <i className="fa-brands fa-instagram"></i>
                 </div>
-              </div>
+              </a>
             ))}
 
-            {/* Duplicated Items for Infinite Loop - from index.html */}
+            {/* Duplicated Items for Infinite Loop */}
             {igItems.map((item, idx) => (
-              <div key={`dup-${idx}`} className="ig-item">
+              <a href={instaUrl} target="_blank" rel="noopener noreferrer" key={`dup-${idx}`} className="ig-item block">
                 <img src={item.image} alt={item.alt} />
                 <div className="ig-overlay">
                   <i className="fa-brands fa-instagram"></i>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         </div>
 
-        {/* Follow Button - from index.html */}
+        {/* Follow Button */}
         <div className="flex justify-center mt-12">
-          <button className="px-8 py-3 bg-[#fffdf9] border-2 border-neutral-900 text-neutral-900 font-bold text-[13px] tracking-widest uppercase hover:bg-[#fce1bf] hover:border-[#fce1bf] transition-colors flex items-center gap-3">
+          <a
+            href={instaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-8 py-3 bg-[#fffdf9] border-2 border-neutral-900 text-neutral-900 font-bold text-[13px] tracking-widest uppercase hover:bg-[#fce1bf] hover:border-[#fce1bf] transition-colors inline-flex items-center gap-3 rounded-full shadow-sm hover:shadow-md"
+          >
             FOLLOW US <i className="fa-solid fa-arrow-right"></i>
-          </button>
+          </a>
         </div>
       </div>
     </section>
