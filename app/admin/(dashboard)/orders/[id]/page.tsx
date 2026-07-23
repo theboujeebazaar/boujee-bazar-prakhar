@@ -338,6 +338,10 @@ try {
   // 2. 🌟 DATA MAPPING BRIDGE: Trims down structural joins and injects your real columns
   const order = {
     ...rawOrder,
+    total_amount: rawOrder.total ?? rawOrder.total_amount ?? 0,
+    shipping_cost: rawOrder.shipping_fee ?? rawOrder.shipping_cost ?? 0,
+    order_status: rawOrder.status ?? rawOrder.order_status ?? 'pending',
+    payment_status: rawOrder.payment_status ?? 'pending',
     order_items: parsedItems,
     profiles: {
       full_name: rawOrder.customer_name || 'Guest Buyer',

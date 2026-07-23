@@ -72,7 +72,6 @@ export async function POST(req: Request) {
           status: 'confirmed',
           razorpay_payment_id: razorpayPaymentId,
           razorpay_order_id: razorpayOrderId,
-          paid_at: new Date().toISOString(),
         })
 
         if (internalOrderId) {
@@ -134,7 +133,6 @@ export async function POST(req: Request) {
         let query = supabaseAdmin.from('orders').update({
           payment_status: 'paid',
           status: 'confirmed',
-          paid_at: new Date().toISOString(),
         })
 
         if (internalOrderId) {

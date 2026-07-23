@@ -366,7 +366,6 @@ export async function createOrder(
   cartItemsFromFrontend: any[],
   couponCode?: string
 ) {
-  // 🌟 FIXED: Instantiate the Admin superuser bypass client to allow direct data writes
   const supabaseAdmin = createAdminClient()
   
   let userId = null
@@ -385,12 +384,30 @@ export async function createOrder(
     return { success: false, error: 'Your shopping cart is completely empty.' }
   }
 
-  // Calculate totals securely using database shipping configuration & coupons
+  // 1. 🛡️ SECURITY: Fetch real product prices from database to prevent client-side price tampering
+  const productIds = cartItemsFromFrontend.map(i => i.id).filter(Boolean)
+  let dbProducts: any[] = []
+  if (productIds.length > 0) {
+    const { data } = await supabaseAdmin
+      .from('products')
+      .select('id, price')
+      .in('id', productIds)
+    dbProducts = data || []
+  }
+
+  const dbPriceMap = new Map(dbProducts.map(p => [p.id, Number(p.price) || 0]))
+
   let subtotal = 0
+  const validatedCartItems = []
   for (const item of cartItemsFromFrontend) {
-    const price = Number(item.price) || 0
-    const quantity = Number(item.quantity) || 1
-    subtotal += (price * quantity)
+    const realPrice = dbPriceMap.has(item.id) ? dbPriceMap.get(item.id)! : (Number(item.price) || 0)
+    const quantity = Math.max(1, Number(item.quantity) || 1)
+    subtotal += (realPrice * quantity)
+    validatedCartItems.push({
+      ...item,
+      price: realPrice,
+      quantity
+    })
   }
 
   const shippingSettings = await getShippingSettings()
@@ -424,72 +441,26 @@ export async function createOrder(
   const order_number = `BB-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
   const orderMockId = crypto.randomUUID()
 
-  // 🌟 FIXED: Formulate transaction write using your master Admin bypass token directly
-  try {
-    const { error: orderInsertError } = await supabaseAdmin
-  .from('orders')
-  .insert([{
+  const orderRecordPayload = {
     id: orderMockId,
     user_id: userId,
-
     customer_name: addressData.fullName || addressData.full_name || 'Premium Collector',
     customer_email: addressData.email || '',
     customer_phone: addressData.phone || '',
-
     shipping_address: `${addressData.street}, ${addressData.city}, ${addressData.state} - ${addressData.zipCode}`,
-
-    items: cartItemsFromFrontend,
-
+    items: validatedCartItems,
     subtotal: subtotal,
     shipping_fee: shipping_cost,
-    discount: 0,
-    coupon_code: null,
+    discount: couponDiscount + online_discount_amount,
+    coupon_code: couponCode || null,
     total: total_amount,
-
     payment_method: paymentMethod === 'RAZORPAY' ? 'Razorpay Online' : 'COD',
     payment_status: paymentMethod === 'RAZORPAY' ? 'pending' : 'pending',
     status: 'pending',
     notes: null,
-  }])
-
-    if (orderInsertError) {
-      console.error("Critical Supabase Orders insert crash:", orderInsertError.message)
-      return { success: false, error: `Database Write Error: ${orderInsertError.message}` }
-    }
-    // Reduce product stock
-for (const item of cartItemsFromFrontend) {
-  const { data: product, error } = await supabaseAdmin
-    .from('products')
-    .select('stock')
-    .eq('id', item.id)
-    .single()
-
-  if (error || !product) {
-    console.warn(`Product ${item.id} not found.`)
-    continue
   }
 
-  const currentStock = Number(product.stock) || 0
-  const orderedQty = Number(item.quantity) || 1
-
-  const newStock = Math.max(0, currentStock - orderedQty)
-
-  const { error: updateError } = await supabaseAdmin
-    .from('products')
-    .update({ stock: newStock })
-    .eq('id', item.id)
-
-  if (updateError) {
-    console.error(`Failed to update stock for ${item.id}:`, updateError.message)
-  }
-}
-
-  } catch (dbErr: any) {
-    console.error("Orders transaction catch error block:", dbErr)
-    return { success: false, error: 'Failed to write order record down into Cloud tables.' }
-  }
-
-  // Handle Razorpay Specific Request Logic Pipelines
+  // Handle Razorpay: Initialize gateway order ONLY; DO NOT write to DB yet!
   if (paymentMethod === 'RAZORPAY') {
     if (!razorpayInstance) {
       return { success: false, error: 'Razorpay payment gateway is not configured on the server environment.' }
@@ -506,16 +477,6 @@ for (const item of cartItemsFromFrontend) {
         }
       }
       const rzpOrder = await razorpayInstance.orders.create(options)
-      
-      // Update order record with razorpay_order_id
-      try {
-        await supabaseAdmin
-          .from('orders')
-          .update({ razorpay_order_id: rzpOrder.id })
-          .eq('id', orderMockId)
-      } catch (err) {
-        console.warn('Could not update razorpay_order_id on order record:', err)
-      }
 
       return {
         success: true,
@@ -523,7 +484,8 @@ for (const item of cartItemsFromFrontend) {
         razorpayOrderId: rzpOrder.id,
         orderId: orderMockId,
         orderNumber: order_number,
-        amount: options.amount
+        amount: options.amount,
+        orderRecordData: orderRecordPayload
       }
     } catch (err: any) {
       console.error('Razorpay Gateway Error:', err)
@@ -531,13 +493,45 @@ for (const item of cartItemsFromFrontend) {
     }
   }
 
-  // If Cash on Delivery, flush cookie cart tokens immediately
+  // Handle Cash on Delivery (COD): Insert order record immediately
+  try {
+    const { error: orderInsertError } = await supabaseAdmin
+      .from('orders')
+      .insert([orderRecordPayload])
+
+    if (orderInsertError) {
+      console.error("Critical Supabase Orders insert crash:", orderInsertError.message)
+      return { success: false, error: `Database Write Error: ${orderInsertError.message}` }
+    }
+
+    // Reduce product stock for COD
+    for (const item of validatedCartItems) {
+      const { data: product } = await supabaseAdmin
+        .from('products')
+        .select('stock')
+        .eq('id', item.id)
+        .maybeSingle()
+
+      if (product) {
+        const currentStock = Number(product.stock) || 0
+        const orderedQty = Number(item.quantity) || 1
+        const newStock = Math.max(0, currentStock - orderedQty)
+        await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id)
+      }
+    }
+  } catch (dbErr: any) {
+    console.error("Orders transaction catch error block:", dbErr)
+    return { success: false, error: 'Failed to write order record.' }
+  }
+
+  // Clear cart cookies for COD
   const cookieStore = await cookies()
   cookieStore.delete('boujee-cart-token')
   cookieStore.delete('cart')
 
   revalidatePath('/cart')
   revalidatePath('/checkout')
+  revalidatePath('/admin/orders')
   
   return { 
     success: true, 
@@ -551,11 +545,13 @@ export async function verifyRazorpayPayment(
   razorpay_payment_id: string,
   razorpay_order_id: string,
   razorpay_signature: string,
-  internal_order_id: string
+  internal_order_id: string,
+  orderRecordData?: any
 ) {
   const secret = process.env.RAZORPAY_KEY_SECRET
   if (!secret) return { success: false, error: 'Razorpay secret key token is not configured on your server.' }
 
+  // 🛡️ SECURITY 1: Cryptographic HMAC-SHA256 signature verification
   const generated_signature = crypto
     .createHmac('sha256', secret)
     .update(razorpay_order_id + '|' + razorpay_payment_id)
@@ -577,33 +573,71 @@ export async function verifyRazorpayPayment(
     return { success: false, error: 'Payment signature verification failed. Untrusted source transaction.' }
   }
 
-  // Safe status updating on orders tables via admin client bypass
   try {
     const supabaseAdmin = createAdminClient()
+
+    // 🛡️ SECURITY 2: Replay attack & duplicate insertion prevention check
+    const { data: existingPayment } = await supabaseAdmin
+      .from('orders')
+      .select('id')
+      .eq('razorpay_payment_id', razorpay_payment_id)
+      .maybeSingle()
+
+    if (existingPayment) {
+      console.log('Payment ID already processed, skipping duplicate insert:', razorpay_payment_id)
+      return { success: true }
+    }
+
     const updateData = {
       payment_status: 'paid',
       status: 'confirmed',
-      order_status: 'confirmed',
       razorpay_payment_id: razorpay_payment_id,
       razorpay_order_id: razorpay_order_id,
-      paid_at: new Date().toISOString(),
     }
 
-    // Try updating by internal order ID first
-    let { error: updateError } = await supabaseAdmin
+    // Check if order already exists in database
+    const { data: existingOrder } = await supabaseAdmin
       .from('orders')
-      .update(updateData)
+      .select('id')
       .eq('id', internal_order_id)
+      .maybeSingle()
 
-    // Fallback update by razorpay_order_id if primary query returned error/missed
-    if (updateError || !internal_order_id) {
-      const { error: fallbackError } = await supabaseAdmin
+    if (existingOrder) {
+      await supabaseAdmin
         .from('orders')
         .update(updateData)
-        .eq('razorpay_order_id', razorpay_order_id)
-      
-      if (fallbackError) {
-        console.error("Failed adjusting payment confirmation flags on orders table:", fallbackError.message)
+        .eq('id', internal_order_id)
+    } else if (orderRecordData) {
+      // Insert new verified order NOW after successful payment verification!
+      const rowToInsert = {
+        ...orderRecordData,
+        payment_status: 'paid',
+        status: 'confirmed',
+        razorpay_payment_id: razorpay_payment_id,
+        razorpay_order_id: razorpay_order_id,
+      }
+
+      const { error: insertError } = await supabaseAdmin.from('orders').insert([rowToInsert])
+      if (insertError) {
+        console.error("Failed inserting verified order record:", insertError.message)
+      }
+
+      // Decrement product stock
+      const items = orderRecordData.items || []
+      for (const item of items) {
+        if (!item.id) continue
+        const { data: product } = await supabaseAdmin
+          .from('products')
+          .select('stock')
+          .eq('id', item.id)
+          .maybeSingle()
+
+        if (product) {
+          const currentStock = Number(product.stock) || 0
+          const orderedQty = Number(item.quantity) || 1
+          const newStock = Math.max(0, currentStock - orderedQty)
+          await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id)
+        }
       }
     }
   } catch (err) {

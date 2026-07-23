@@ -923,7 +923,8 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
               response.razorpay_payment_id,
               response.razorpay_order_id,
               response.razorpay_signature,
-              orderData.orderId
+              orderData.orderId,
+              orderData.orderRecordData
             )
             if (verifyRes.success) {
               setPlacedOrder({
