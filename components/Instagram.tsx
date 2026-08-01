@@ -6,11 +6,11 @@ interface IGItem {
   alt: string
 }
 
-export default function Instagram() {
+export default function Instagram({ images }: { images?: string[] }) {
   const instaUrl = "https://www.instagram.com/the_boujeebazaar/"
 
-  // IG items from index.html
-  const igItems: IGItem[] = [
+  // Fallback demo images used only if no images have been uploaded in the admin panel yet
+  const fallbackItems: IGItem[] = [
     { image: 'assets/img/demos_insta/demo_1.jpeg', alt: 'IG 1' },
     { image: 'assets/img/demos_insta/demo_2.jpeg', alt: 'IG 2' },
     { image: 'assets/img/demos_insta/demo_3.jpeg', alt: 'IG 3' },
@@ -18,6 +18,10 @@ export default function Instagram() {
     { image: 'assets/img/demos_insta/demo_5.jpeg', alt: 'IG 5' },
     { image: 'assets/img/demos_insta/demo_6.jpeg', alt: 'IG 6' },
   ]
+
+  const igItems: IGItem[] = images && images.length > 0
+    ? images.map((url, idx) => ({ image: url, alt: `Instagram post ${idx + 1}` }))
+    : fallbackItems
 
   return (
     <section className="w-full py-16 md:py-20 bg-white overflow-hidden relative instagram-gallery">

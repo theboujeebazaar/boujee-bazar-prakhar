@@ -234,13 +234,16 @@ export default async function Home() {
         <Hero slides={rawSlides} />
         <Categories categories={rawCategories} />
         <NewArrivals products={newArrivals} />
+        <Aboutp imageUrl={settings?.made_for_you_image} />
         <Products products={bestSellers} />
-        
-        <Edition bannerUrl={settings?.hero_bg_banner?.url} />
+
+        <Edition
+          bannerUrl={settings?.hero_bg_banner?.url}
+          mobileBannerUrl={settings?.hero_bg_banner?.mobile_url}
+        />
         <Features />
-        <Aboutp />
         <Reviews />
-        <Instagram />
+        <Instagram images={settings?.instagram_images} />
         <Newsletter />
         <FAQ initialFaqs={rawFaqs} />
       </main>

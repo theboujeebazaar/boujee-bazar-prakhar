@@ -40,7 +40,9 @@ export async function getCompleteStoreConfig() {
       },
       hero_bg_banner: {
         // 🌟 FIXED: Pulls the background banner from your exact database object property structure
-        url: values.hero_bg_banner?.url || values.hero_bg_banner || ''
+        url: values.hero_bg_banner?.url || values.hero_bg_banner || '',
+        // Separate image used for mobile viewports (different aspect ratio than desktop)
+        mobile_url: values.hero_bg_banner?.mobile_url || ''
       },
       // 🌟 FIXED: Pulls your 6 category image links straight from your exact JSON cards collection
       hero_cards: values.hero_cards?.cards || values.hero_cards || [
@@ -50,11 +52,15 @@ export async function getCompleteStoreConfig() {
         { image: '', label: 'Charm Bracelet' },
         { image: '', label: 'Pearl Studs' },
         { image: '', label: 'Gold Bangle' }
-      ]
+      ],
+      // Plain list of image URLs for the homepage Instagram section — owner just uploads, no labels
+      instagram_images: Array.isArray(values.instagram_images) ? values.instagram_images : [],
+      // Single image for the "Made For You, By Us" homepage section
+      made_for_you_image: values.made_for_you_image || ''
     }
   } catch (err) {
     console.error("Failed downloading complete store layout matrix:", err)
-    return { success: false, global_settings: {}, hero_bg_banner: {}, hero_cards: [] }
+    return { success: false, global_settings: {}, hero_bg_banner: {}, hero_cards: [], instagram_images: [], made_for_you_image: '' }
   }
 }
 
@@ -63,8 +69,10 @@ export async function getCompleteStoreConfig() {
  */
 export async function saveCompleteStoreConfig(payload: {
   global_settings: any
-  hero_bg_banner: { url: string }
+  hero_bg_banner: { url: string; mobile_url?: string }
   hero_cards: any[]
+  instagram_images?: string[]
+  made_for_you_image?: string
 }) {
   const cookieStore = await cookies()
   const isBoujeeAdmin = cookieStore.get('boujee-admin-logged-in')?.value === 'true'
@@ -90,8 +98,13 @@ export async function saveCompleteStoreConfig(payload: {
     const absolutePayload = {
       ...currentValues,
       ...payload.global_settings,
-      hero_bg_banner: { url: payload.hero_bg_banner.url },
-      hero_cards: { cards: payload.hero_cards } // Formats it to match your custom sub-object structure exactly
+      hero_bg_banner: {
+        url: payload.hero_bg_banner.url,
+        mobile_url: payload.hero_bg_banner.mobile_url || ''
+      },
+      hero_cards: { cards: payload.hero_cards }, // Formats it to match your custom sub-object structure exactly
+      instagram_images: Array.isArray(payload.instagram_images) ? payload.instagram_images : [],
+      made_for_you_image: payload.made_for_you_image || ''
     }
 
     // 3. Save it directly back into your single row column space

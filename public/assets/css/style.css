@@ -1259,3 +1259,45 @@
           font-size: 24px;
         }
       }
+
+      /* Celestial Collection banner — deliberately scoped to its own
+         classes (not .hero-slider/.hero-image) so it never affects the
+         main homepage Hero slider, which reuses those class names. */
+      .celestial-banner {
+        margin: 20px 40px;
+        border-radius: 30px;
+        overflow: hidden;
+      }
+      .celestial-banner-trigger {
+        display: block;
+        width: 100%;
+        border: none;
+        padding: 0;
+        margin: 0;
+        background: none;
+        cursor: pointer;
+        aspect-ratio: 21 / 9;
+      }
+      .celestial-banner-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      @media (max-width: 1024px) {
+        .celestial-banner-trigger {
+          aspect-ratio: 16 / 9;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .celestial-banner {
+          margin: 15px;
+          border-radius: 20px;
+        }
+        .celestial-banner-trigger {
+          /* Portrait ratio — swap to taste to match whatever the uploaded mobile image is cropped to */
+          aspect-ratio: 4 / 5;
+        }
+      }

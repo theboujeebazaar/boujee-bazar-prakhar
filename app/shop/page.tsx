@@ -234,7 +234,7 @@ export default async function ShopPage({
               Shop the Drop
             </h1>
             <p className="mt-3 text-neutral-300 font-body text-xs md:text-sm max-w-md mx-auto leading-relaxed">
-              Anti-tarnish • Waterproof • Hypoallergenic jewelry pieces engineered to shine every single day.
+              Timeless jewelry & curated lifestyle essentials designed to elevate your everyday.
             </p>
           </div>
         </section>

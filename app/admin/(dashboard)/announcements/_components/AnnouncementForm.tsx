@@ -146,7 +146,8 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
   }, [initialData])
 
   const [heroBgBanner, setHeroBgBanner] = useState({
-    url: initialData?.hero_bg_banner?.url || ''
+    url: initialData?.hero_bg_banner?.url || '',
+    mobile_url: initialData?.hero_bg_banner?.mobile_url || ''
   })
 
   // Populates all 6 dynamic promotion cards seamlessly
@@ -160,6 +161,14 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
       { image: '', label: 'Gold Bangle' }
     ]
   )
+
+  // Plain list of image URLs for the homepage Instagram section — owner just uploads, no labels
+  const [instagramImages, setInstagramImages] = useState<string[]>(
+    Array.isArray(initialData?.instagram_images) ? initialData.instagram_images : []
+  )
+
+  // Single image for the "Made For You, By Us" homepage section
+  const [madeForYouImage, setMadeForYouImage] = useState(initialData?.made_for_you_image || '')
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -195,6 +204,20 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
     setHeroCards(updated)
   }
 
+  // Adds one or more newly uploaded Instagram images (owner just uploads, nothing else to fill in)
+  const handleInstagramUploadSuccess = (result: any) => {
+    const newUrls: string[] = result?.info?.files
+      ? result.info.files.map((f: any) => f.uploadInfo?.secure_url || f.secure_url).filter(Boolean)
+      : [result.info.secure_url].filter(Boolean)
+
+    if (newUrls.length === 0) return
+    setInstagramImages(prev => [...prev, ...newUrls])
+  }
+
+  const removeInstagramImage = (urlToRemove: string) => {
+    setInstagramImages(prev => prev.filter(url => url !== urlToRemove))
+  }
+
   const handleSaveAllConfig = () => {
     // Clean items and join them back into a single string using " • " separator
     const cleanedItems = announcementList.map(item => item.trim()).filter(item => item !== '')
@@ -218,7 +241,9 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
       const result = await saveCompleteStoreConfig({
         global_settings: updatedGlobalSettings,
         hero_bg_banner: heroBgBanner,
-        hero_cards: heroCards
+        hero_cards: heroCards,
+        instagram_images: instagramImages,
+        made_for_you_image: madeForYouImage
       })
 
       if (result.error) {
@@ -334,7 +359,7 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
       {/* SECTION 3: Hero Background Banner URL Configuration */}
 <div className="bg-white rounded-2xl border border-stone-200/60 p-6 md:p-8 space-y-4 shadow-xs" style={{ fontFamily: 'Poppins, sans-serif' }}>
   <h3 className="text-sm font-bold uppercase text-stone-400 tracking-wider flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-    <ImageIcon className="w-4 h-4 text-[#c5a880]" /> Hero Background Banner (`hero_bg_banner`)
+    <ImageIcon className="w-4 h-4 text-[#c5a880]" /> Limited Edition Section
   </h3>
   
   <div>
@@ -353,7 +378,7 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
           />
           <button
             type="button"
-            onClick={() => setHeroBgBanner({ url: '' })} // 💡 Clears out the image value instantly
+            onClick={() => setHeroBgBanner(prev => ({ ...prev, url: '' }))} // 💡 Clears out the image value instantly
             className="absolute top-3 right-3 p-1.5 bg-white/90 hover:bg-white text-stone-700 hover:text-red-600 rounded-lg shadow-md backdrop-blur-xs transition-all border border-stone-200/60 flex items-center justify-center"
             title="Remove Banner Image"
           >
@@ -366,7 +391,7 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
       </div>
     ) : (
       /* ✅ CLOUDINARY FILE SELECTOR: Hooks straight into your working api/cloudinary/sign route path */
-      <CldUploadWidget 
+      <CldUploadWidget
         signatureEndpoint="/api/cloudinary/sign"
         options={{
           maxFiles: 1,
@@ -375,7 +400,7 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
         }}
         onSuccess={(result: any) => {
           // Updates your parent state hook variable value context parameter instantly on upload completion
-          setHeroBgBanner({ url: result.info.secure_url })
+          setHeroBgBanner(prev => ({ ...prev, url: result.info.secure_url }))
         }}
       >
         {({ open }) => (
@@ -394,7 +419,165 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
       </CldUploadWidget>
     )}
   </div>
+
+  <div className="pt-2 border-t border-stone-100">
+    <label className="block text-xs font-semibold text-stone-600 mb-1.5">
+      Mobile Cover Image <span className="text-stone-400 font-normal normal-case">(optional — different aspect ratio for phones)</span>
+    </label>
+
+    {heroBgBanner.mobile_url ? (
+      <div className="space-y-3">
+        <div className="relative w-full max-w-[220px] h-64 mx-auto rounded-xl overflow-hidden bg-stone-50 border border-stone-200/60 shadow-inner group">
+          <img
+            src={heroBgBanner.mobile_url}
+            alt="Mobile Hero Banner Preview"
+            className="w-full h-full object-cover"
+          />
+          <button
+            type="button"
+            onClick={() => setHeroBgBanner(prev => ({ ...prev, mobile_url: '' }))}
+            className="absolute top-3 right-3 p-1.5 bg-white/90 hover:bg-white text-stone-700 hover:text-red-600 rounded-lg shadow-md backdrop-blur-xs transition-all border border-stone-200/60 flex items-center justify-center"
+            title="Remove Mobile Banner Image"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-[11px] text-stone-400 font-medium truncate bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-100">
+          🔗 Live Path: {heroBgBanner.mobile_url}
+        </p>
+      </div>
+    ) : (
+      <CldUploadWidget
+        signatureEndpoint="/api/cloudinary/sign"
+        options={{
+          maxFiles: 1,
+          resourceType: "image",
+          clientAllowedFormats: ["jpg", "jpeg", "png", "webp"]
+        }}
+        onSuccess={(result: any) => {
+          setHeroBgBanner(prev => ({ ...prev, mobile_url: result.info.secure_url }))
+        }}
+      >
+        {({ open }) => (
+          <button
+            type="button"
+            onClick={() => open()}
+            className="w-full h-36 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 text-stone-500 hover:bg-[#FBF7F0] hover:border-[#c5a880] hover:text-[#c5a880] transition-all"
+          >
+            <div className="w-10 h-10 rounded-full bg-white border border-stone-200/60 flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+              <ImageIcon className="w-5 h-5 text-stone-400" />
+            </div>
+            <span className="text-sm font-semibold mt-1">Click to upload mobile banner</span>
+            <span className="text-xs text-stone-400 font-medium">Recommended: portrait, e.g. 800x1000px. Falls back to the desktop image if left empty.</span>
+          </button>
+        )}
+      </CldUploadWidget>
+    )}
+  </div>
 </div>
+
+      {/* SECTION: Instagram Section Images — owner just uploads images, nothing else */}
+      <div className="bg-white rounded-2xl border border-stone-200/60 p-6 md:p-8 space-y-4 shadow-xs" style={{ fontFamily: 'Poppins, sans-serif' }}>
+        <h3 className="text-sm font-bold uppercase text-stone-400 tracking-wider flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+          <ImageIcon className="w-4 h-4 text-[#c5a880]" /> Instagram Section Images (`instagram_images`)
+        </h3>
+        <p className="text-xs text-stone-400 -mt-2">
+          Upload the images shown in the homepage &quot;Join The Club&quot; Instagram gallery. Just upload — no titles or captions needed.
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {instagramImages.map((url, idx) => (
+            <div key={url + idx} className="relative aspect-square rounded-xl overflow-hidden bg-stone-50 border border-stone-200/60 shadow-inner group">
+              <img src={url} alt={`Instagram image ${idx + 1}`} className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeInstagramImage(url)}
+                className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white text-stone-700 hover:text-red-600 rounded-lg shadow-md backdrop-blur-xs transition-all border border-stone-200/60 flex items-center justify-center"
+                title="Remove Image"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+
+          <CldUploadWidget
+            signatureEndpoint="/api/cloudinary/sign"
+            options={{
+              multiple: true,
+              resourceType: 'image',
+              clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp']
+            }}
+            onSuccess={handleInstagramUploadSuccess}
+          >
+            {({ open }) => (
+              <button
+                type="button"
+                onClick={() => open()}
+                className="aspect-square flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 text-stone-500 hover:bg-[#FBF7F0] hover:border-[#c5a880] hover:text-[#c5a880] transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="text-xs font-semibold">Upload</span>
+              </button>
+            )}
+          </CldUploadWidget>
+        </div>
+      </div>
+
+      {/* SECTION: "Made For You, By Us" homepage section image — single upload, nothing else */}
+      <div className="bg-white rounded-2xl border border-stone-200/60 p-6 md:p-8 space-y-4 shadow-xs" style={{ fontFamily: 'Poppins, sans-serif' }}>
+        <h3 className="text-sm font-bold uppercase text-stone-400 tracking-wider flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+          <ImageIcon className="w-4 h-4 text-[#c5a880]" /> &quot;Made For You, By Us&quot; Section Image (`made_for_you_image`)
+        </h3>
+
+        {madeForYouImage ? (
+          <div className="space-y-3">
+            <div className="relative w-full max-w-md aspect-[4/3] rounded-xl overflow-hidden bg-stone-50 border border-stone-200/60 shadow-inner group">
+              <img
+                src={madeForYouImage}
+                alt="Made For You, By Us Preview"
+                className="w-full h-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => setMadeForYouImage('')}
+                className="absolute top-3 right-3 p-1.5 bg-white/90 hover:bg-white text-stone-700 hover:text-red-600 rounded-lg shadow-md backdrop-blur-xs transition-all border border-stone-200/60 flex items-center justify-center"
+                title="Remove Image"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-stone-400 font-medium truncate bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-100 max-w-md">
+              🔗 Live Path: {madeForYouImage}
+            </p>
+          </div>
+        ) : (
+          <CldUploadWidget
+            signatureEndpoint="/api/cloudinary/sign"
+            options={{
+              maxFiles: 1,
+              resourceType: 'image',
+              clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp']
+            }}
+            onSuccess={(result: any) => {
+              setMadeForYouImage(result.info.secure_url)
+            }}
+          >
+            {({ open }) => (
+              <button
+                type="button"
+                onClick={() => open()}
+                className="w-full max-w-md h-40 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 text-stone-500 hover:bg-[#FBF7F0] hover:border-[#c5a880] hover:text-[#c5a880] transition-all"
+              >
+                <div className="w-10 h-10 rounded-full bg-white border border-stone-200/60 flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform">
+                  <ImageIcon className="w-5 h-5 text-stone-400" />
+                </div>
+                <span className="text-sm font-semibold mt-1">Click to upload image</span>
+                <span className="text-xs text-stone-400 font-medium">Recommended: 4:3 ratio (e.g. 1200x900px)</span>
+              </button>
+            )}
+          </CldUploadWidget>
+        )}
+      </div>
 
 
       {/* SECTION 4: Interactive 6 Home Curation Cards Config Grid

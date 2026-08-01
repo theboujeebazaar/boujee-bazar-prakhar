@@ -17,8 +17,8 @@ export default function Story() {
               <div className="relative aspect-[5/6] rounded-[24px] overflow-hidden shadow-lg border border-neutral-100">
   <Image
     // 🌟 FIXED: Added the leading forward slash '/' to point directly to your public folder root path
-    src="/assets/img/pr_6.jpeg" 
-    alt="The Boujee Bazaar Earring collection showcase model"
+    src="/assets/img/our-story.jpeg"
+    alt="The Boujee Bazaar signature packaging and thank you card set"
     fill
     sizes="(max-width: 768px) 90vw, 460px"
     className="object-cover object-top"
@@ -59,13 +59,13 @@ export default function Story() {
             {/* Jewelry-oriented Copywriting Overhaul */}
             <Reveal delay={2}>
               <p className="text-neutral-600 text-sm md:text-base mt-5 max-w-[520px] leading-relaxed">
-                At <strong className="text-neutral-900 font-semibold">The Boujee Bazaar</strong>, jewelry isn't just an accessory—it's an armor of everyday luxury. We design minimal, statement accessories engineered for relentless daily use. Every premium piece starts with surgical stainless steel bases, vacuum-sealed with 18k and 24k gold overlay drapes.
+                Jewelry is at the heart of <strong className="text-neutral-900 font-semibold">The Boujee Bazaar</strong>. It's where our story begins—with timeless pieces designed to make everyday moments feel a little more special. Alongside our jewelry, you'll find thoughtfully curated accessories that complement your style and celebrate life's little details.
               </p>
             </Reveal>
-            
+
             <Reveal delay={3}>
               <p className="text-neutral-600 text-sm md:text-base mt-4 max-w-[520px] leading-relaxed">
-                Completely waterproof, sweat-resistant, and 100% hypoallergenic. Shipped with care straight from our Indian operation centers to fashion-forward collectors nationwide.
+                We believe the pieces you wear become part of your journey—marking milestones, creating memories, and expressing who you are. Every collection is carefully curated with quality, elegance, and versatility in mind, because the smallest details often leave the biggest impression. ✨
               </p>
             </Reveal>
             

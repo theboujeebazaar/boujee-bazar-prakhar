@@ -61,10 +61,12 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 interface Category {
   id: string;
   name: string;
+  slug?: string;
   image_url?: string;
   image?: string;
   count?: string;
@@ -89,7 +91,11 @@ export default function Categories({ categories = [] }: { categories?: Category[
 
       <div className="collection-grid">
         {activeCategories.map((category) => (
-          <div className="collection-item" key={category.id}>
+          <Link
+            href={`/shop?category=${encodeURIComponent(category.name)}`}
+            className="collection-item"
+            key={category.id}
+          >
             <div className="collection-img">
               <img
                 src={category.image_url || category.image || "/assets/img/placeholder.jpeg"}
@@ -97,10 +103,8 @@ export default function Categories({ categories = [] }: { categories?: Category[
               />
             </div>
             <span>{category.name}</span>
-          </div>
+          </Link>
         ))}
-       
-        
       </div>
     </section>
   );

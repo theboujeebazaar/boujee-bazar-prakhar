@@ -15,11 +15,15 @@ export default async function EditCategoryPage({
   const { id } = await params
   const supabase = createAdminClient()
 
-  const { data: category } = await supabase
+  const { data: category, error } = await supabase
     .from('categories')
     .select('*')
     .eq('id', id)
     .single()
+
+  if (error) {
+    console.error(`[categories/edit] lookup failed for id="${id}":`, error)
+  }
 
   if (!category) {
     notFound()

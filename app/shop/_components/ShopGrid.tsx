@@ -40,7 +40,6 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
     selectedCategory ? [selectedCategory.trim().toLowerCase()] : []
   )
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
-  const [maxPrice, setMaxPrice] = useState<number>(15000)
   const { addToCart } = useCart()
   const { toggleWishlist, isInWishlist } = useWishlist()
   const { showToast } = useToast()
@@ -90,7 +89,7 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedCategories, maxPrice, filterParam])
+  }, [selectedCategories, filterParam])
 
   const toggleCategory = (id: string) => {
     const targetId = id.trim().toLowerCase()
@@ -134,9 +133,6 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
         if (!isSale) return false
       }
     }
-
-    // 3. Price Threshold
-    if (p.price > maxPrice) return false
 
     return true
   })
@@ -256,26 +252,6 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
         </div>
       </div>
 
-      {/* Price Range Slider */}
-      <div>
-        <div className="flex items-center justify-between mb-4 border-b border-neutral-100 pb-3">
-          <h3 className="font-display font-bold text-lg text-neutral-900" style={{ fontFamily: 'Playfair Display, serif' }}>Max Budget</h3>
-          <span className="font-bold text-neutral-900">₹{maxPrice.toLocaleString('en-IN')}</span>
-        </div>
-        <input 
-          type="range" 
-          min="500" 
-          max="15000" 
-          step="100" 
-          value={maxPrice} 
-          onChange={(e) => setMaxPrice(Number(e.target.value))}
-          className="w-full cursor-pointer accent-neutral-900"
-        />
-        <div className="flex justify-between text-[11px] text-neutral-400 mt-3 font-bold tracking-wider">
-          <span>₹500</span>
-          <span>₹15,000</span>
-        </div>
-      </div>
     </div>
   )
 

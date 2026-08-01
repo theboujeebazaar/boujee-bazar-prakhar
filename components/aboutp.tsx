@@ -3,16 +3,18 @@
 import Link from 'next/link'
 import Image from 'next/image'
 
-export default function About() {
+export default function About({ imageUrl }: { imageUrl?: string }) {
+  const resolvedImage = imageUrl || '/assets/img/about-us.webp'
+
   return (
     <section className="w-full pb-16 md:pb-24 bg-[#FFFdf9]">
       <div className="w-full max-w-[1500px] mx-auto px-4 md:px-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
-          
+
           {/* Left: Image with rounded corners */}
           <div className="relative w-full aspect-[4/3] md:aspect-[3/2] rounded-[32px] overflow-hidden shadow-sm">
             <Image
-              src="/assets/img/about-us.webp"
+              src={resolvedImage}
               alt="The Boujee Bazaar packaging and jewelry"
               fill
               className="object-cover"
