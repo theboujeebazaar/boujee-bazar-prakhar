@@ -162,9 +162,16 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
     ]
   )
 
-  // Plain list of image URLs for the homepage Instagram section — owner just uploads, no labels
-  const [instagramImages, setInstagramImages] = useState<string[]>(
-    Array.isArray(initialData?.instagram_images) ? initialData.instagram_images : []
+  // Instagram section images — each has an image plus an optional click-through link.
+  // Normalizes legacy plain string entries (no link yet) into the { image_url, link_url } shape.
+  const [instagramImages, setInstagramImages] = useState<{ image_url: string; link_url: string }[]>(
+    Array.isArray(initialData?.instagram_images)
+      ? initialData.instagram_images.map((item: any) =>
+          typeof item === 'string'
+            ? { image_url: item, link_url: '' }
+            : { image_url: item?.image_url || '', link_url: item?.link_url || '' }
+        )
+      : []
   )
 
   // Single image for the "Made For You, By Us" homepage section
@@ -204,18 +211,23 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
     setHeroCards(updated)
   }
 
-  // Adds one or more newly uploaded Instagram images (owner just uploads, nothing else to fill in)
+  // Adds one or more newly uploaded Instagram images, each starting with an empty link
   const handleInstagramUploadSuccess = (result: any) => {
     const newUrls: string[] = result?.info?.files
       ? result.info.files.map((f: any) => f.uploadInfo?.secure_url || f.secure_url).filter(Boolean)
       : [result.info.secure_url].filter(Boolean)
 
     if (newUrls.length === 0) return
-    setInstagramImages(prev => [...prev, ...newUrls])
+    setInstagramImages(prev => [...prev, ...newUrls.map(url => ({ image_url: url, link_url: '' }))])
   }
 
-  const removeInstagramImage = (urlToRemove: string) => {
-    setInstagramImages(prev => prev.filter(url => url !== urlToRemove))
+  const removeInstagramImage = (indexToRemove: number) => {
+    setInstagramImages(prev => prev.filter((_, i) => i !== indexToRemove))
+  }
+
+  // Updates the click-through link for a single Instagram image
+  const handleInstagramLinkChange = (index: number, link: string) => {
+    setInstagramImages(prev => prev.map((item, i) => (i === index ? { ...item, link_url: link } : item)))
   }
 
   const handleSaveAllConfig = () => {
@@ -482,21 +494,30 @@ export function AnnouncementForm({ initialData }: { initialData: any }) {
           <ImageIcon className="w-4 h-4 text-[#c5a880]" /> Instagram Section Images (`instagram_images`)
         </h3>
         <p className="text-xs text-stone-400 -mt-2">
-          Upload the images shown in the homepage &quot;Join The Club&quot; Instagram gallery. Just upload — no titles or captions needed.
+          Upload the images shown in the homepage &quot;Join The Club&quot; Instagram gallery. Optionally add a link for each image — clicking it on the homepage will open that link instead of your Instagram profile.
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {instagramImages.map((url, idx) => (
-            <div key={url + idx} className="relative aspect-square rounded-xl overflow-hidden bg-stone-50 border border-stone-200/60 shadow-inner group">
-              <img src={url} alt={`Instagram image ${idx + 1}`} className="w-full h-full object-cover" />
-              <button
-                type="button"
-                onClick={() => removeInstagramImage(url)}
-                className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white text-stone-700 hover:text-red-600 rounded-lg shadow-md backdrop-blur-xs transition-all border border-stone-200/60 flex items-center justify-center"
-                title="Remove Image"
-              >
-                <X className="w-4 h-4" />
-              </button>
+          {instagramImages.map((item, idx) => (
+            <div key={idx} className="relative rounded-xl overflow-hidden bg-stone-50 border border-stone-200/60 shadow-inner group flex flex-col">
+              <div className="relative aspect-square">
+                <img src={item.image_url} alt={`Instagram image ${idx + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeInstagramImage(idx)}
+                  className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white text-stone-700 hover:text-red-600 rounded-lg shadow-md backdrop-blur-xs transition-all border border-stone-200/60 flex items-center justify-center"
+                  title="Remove Image"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <input
+                type="url"
+                value={item.link_url}
+                onChange={(e) => handleInstagramLinkChange(idx, e.target.value)}
+                placeholder="Link (optional)"
+                className="w-full px-2 py-1.5 text-xs border-t border-stone-200/60 focus:outline-none focus:ring-1 focus:ring-[#c5a880] bg-white text-stone-700 placeholder:text-stone-400"
+              />
             </div>
           ))}
 

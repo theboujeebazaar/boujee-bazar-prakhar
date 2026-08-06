@@ -46,7 +46,7 @@ export default function NewArrivals({ products: dbProducts }: { products?: Produ
             .map((p: any) => ({
               id: p.id,
               name: p.name,
-              image: p.image || '/assets/img/placeholder.jpeg',
+              image: p.image || '/assets/img/pr_1.jpeg',
               price: p.price,
               rating: 5.0,
               reviewCount: 30,

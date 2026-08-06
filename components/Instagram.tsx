@@ -4,23 +4,38 @@
 interface IGItem {
   image: string
   alt: string
+  link: string
 }
 
-export default function Instagram({ images }: { images?: string[] }) {
+// Admin can store instagram_images either as the legacy plain string[] of URLs
+// (no link, clicking opens the Instagram profile) or the newer
+// { image_url, link_url }[] shape (clicking opens link_url when set).
+type InstagramImageInput = string | { image_url?: string; link_url?: string }
+
+export default function Instagram({ images }: { images?: InstagramImageInput[] }) {
   const instaUrl = "https://www.instagram.com/the_boujeebazaar/"
 
   // Fallback demo images used only if no images have been uploaded in the admin panel yet
   const fallbackItems: IGItem[] = [
-    { image: 'assets/img/demos_insta/demo_1.jpeg', alt: 'IG 1' },
-    { image: 'assets/img/demos_insta/demo_2.jpeg', alt: 'IG 2' },
-    { image: 'assets/img/demos_insta/demo_3.jpeg', alt: 'IG 3' },
-    { image: 'assets/img/demos_insta/demo_4.jpeg', alt: 'IG 4' },
-    { image: 'assets/img/demos_insta/demo_5.jpeg', alt: 'IG 5' },
-    { image: 'assets/img/demos_insta/demo_6.jpeg', alt: 'IG 6' },
+    { image: 'assets/img/demos_insta/demo_1.jpeg', alt: 'IG 1', link: instaUrl },
+    { image: 'assets/img/demos_insta/demo_2.jpeg', alt: 'IG 2', link: instaUrl },
+    { image: 'assets/img/demos_insta/demo_3.jpeg', alt: 'IG 3', link: instaUrl },
+    { image: 'assets/img/demos_insta/demo_4.jpeg', alt: 'IG 4', link: instaUrl },
+    { image: 'assets/img/demos_insta/demo_5.jpeg', alt: 'IG 5', link: instaUrl },
+    { image: 'assets/img/demos_insta/demo_6.jpeg', alt: 'IG 6', link: instaUrl },
   ]
 
   const igItems: IGItem[] = images && images.length > 0
-    ? images.map((url, idx) => ({ image: url, alt: `Instagram post ${idx + 1}` }))
+    ? images.map((item, idx) => {
+        if (typeof item === 'string') {
+          return { image: item, alt: `Instagram post ${idx + 1}`, link: instaUrl }
+        }
+        return {
+          image: item.image_url || '',
+          alt: `Instagram post ${idx + 1}`,
+          link: item.link_url?.trim() || instaUrl
+        }
+      }).filter(item => item.image)
     : fallbackItems
 
   return (
@@ -40,7 +55,7 @@ export default function Instagram({ images }: { images?: string[] }) {
           <div className="ig-track">
             {/* Original Items */}
             {igItems.map((item, idx) => (
-              <a href={instaUrl} target="_blank" rel="noopener noreferrer" key={idx} className="ig-item block">
+              <a href={item.link} target="_blank" rel="noopener noreferrer" key={idx} className="ig-item block">
                 <img src={item.image} alt={item.alt} />
                 <div className="ig-overlay">
                   <i className="fa-brands fa-instagram"></i>
@@ -50,7 +65,7 @@ export default function Instagram({ images }: { images?: string[] }) {
 
             {/* Duplicated Items for Infinite Loop */}
             {igItems.map((item, idx) => (
-              <a href={instaUrl} target="_blank" rel="noopener noreferrer" key={`dup-${idx}`} className="ig-item block">
+              <a href={item.link} target="_blank" rel="noopener noreferrer" key={`dup-${idx}`} className="ig-item block">
                 <img src={item.image} alt={item.alt} />
                 <div className="ig-overlay">
                   <i className="fa-brands fa-instagram"></i>

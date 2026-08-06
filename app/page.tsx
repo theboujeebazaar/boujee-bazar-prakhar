@@ -205,7 +205,7 @@ export default async function Home() {
   const allMappedProducts = rawProducts.map((p: any) => ({
     id: p.id,
     name: p.name,
-    image: p.image || '/assets/img/placeholder.jpeg',
+    image: p.image || '/assets/img/pr_1.jpeg',
     price: p.price || 0,
     originalPrice: p.originalPrice || undefined,
     rating: 5.0,

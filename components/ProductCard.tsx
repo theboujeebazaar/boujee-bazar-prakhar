@@ -7,6 +7,18 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useCart } from '@/context/CartContext'
 import { useToast } from '@/context/ToastContext'
 
+// next/image throws "Failed to construct 'URL': Invalid URL" if src is a non-empty
+// string that isn't root-relative ("/...") or a full "http(s)://" URL — e.g. a bare
+// filename like "pr_1.jpeg" with no leading slash. Normalize/guard against that here.
+function getSafeImageSrc(src?: string | null): string {
+  const fallback = '/assets/img/pr_1.jpeg'
+  if (!src || typeof src !== 'string') return fallback
+  const trimmed = src.trim()
+  if (!trimmed) return fallback
+  if (trimmed.startsWith('/') || /^https?:\/\//i.test(trimmed)) return trimmed
+  return `/${trimmed}`
+}
+
 interface ProductCardProps {
   id?: string
   image: string
@@ -101,7 +113,7 @@ export default function ProductCard({
       {/* Media Frame Asset Anchor */}
       <Link href={`/shop/${id}`} className="relative aspect-[4/5] overflow-hidden block bg-neutral-50">
         <Image
-          src={image}
+          src={getSafeImageSrc(image)}
           alt={alt}
           fill
           sizes="(max-width: 768px) 50vw, 320px"

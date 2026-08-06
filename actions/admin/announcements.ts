@@ -53,8 +53,16 @@ export async function getCompleteStoreConfig() {
         { image: '', label: 'Pearl Studs' },
         { image: '', label: 'Gold Bangle' }
       ],
-      // Plain list of image URLs for the homepage Instagram section — owner just uploads, no labels
-      instagram_images: Array.isArray(values.instagram_images) ? values.instagram_images : [],
+      // Instagram section images — each item can carry an optional click-through link.
+      // Normalizes legacy plain string[] entries (no link, just a URL) into the
+      // { image_url, link_url } shape the admin form and homepage component now use.
+      instagram_images: Array.isArray(values.instagram_images)
+        ? values.instagram_images.map((item: any) =>
+            typeof item === 'string'
+              ? { image_url: item, link_url: '' }
+              : { image_url: item?.image_url || '', link_url: item?.link_url || '' }
+          ).filter((item: { image_url: string }) => item.image_url)
+        : [],
       // Single image for the "Made For You, By Us" homepage section
       made_for_you_image: values.made_for_you_image || ''
     }
@@ -71,7 +79,7 @@ export async function saveCompleteStoreConfig(payload: {
   global_settings: any
   hero_bg_banner: { url: string; mobile_url?: string }
   hero_cards: any[]
-  instagram_images?: string[]
+  instagram_images?: { image_url: string; link_url?: string }[]
   made_for_you_image?: string
 }) {
   const cookieStore = await cookies()
@@ -103,7 +111,11 @@ export async function saveCompleteStoreConfig(payload: {
         mobile_url: payload.hero_bg_banner.mobile_url || ''
       },
       hero_cards: { cards: payload.hero_cards }, // Formats it to match your custom sub-object structure exactly
-      instagram_images: Array.isArray(payload.instagram_images) ? payload.instagram_images : [],
+      instagram_images: Array.isArray(payload.instagram_images)
+        ? payload.instagram_images
+            .filter(item => item?.image_url)
+            .map(item => ({ image_url: item.image_url, link_url: item.link_url || '' }))
+        : [],
       made_for_you_image: payload.made_for_you_image || ''
     }
 
