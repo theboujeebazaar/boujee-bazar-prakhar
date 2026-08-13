@@ -170,6 +170,8 @@ interface Product {
   colorCount?: number
   rating: number
   reviewCount: number
+  stock?: number
+  available?: boolean
 }
 
 export default function Products({ products: dbProducts }: { products?: Product[] }) {
@@ -276,6 +278,8 @@ export default function Products({ products: dbProducts }: { products?: Product[
               category_name={product.category_name}
               badge={product.badge}
               colorCount={product.colorCount}
+              stock={product.stock}
+              available={product.available}
             />
           ))}
           </div>

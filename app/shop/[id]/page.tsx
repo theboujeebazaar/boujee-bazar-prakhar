@@ -352,11 +352,11 @@ export default async function ProductDetailPage({ params }: { params: any }) {
   // 1. Fetch main product details
   const { data: productData } = await supabase
     .from("products")
-    .select(`id, name, price, originalPrice, image, images, category, subcategory, description, sizes, colors, tag, available`)
+    .select(`id, name, price, originalPrice, image, images, category, subcategory, description, sizes, colors, tag, available, stock`)
     .eq("id", id)
     .single();
 
-  if (!productData || !productData.available) notFound();
+  if (!productData) notFound();
 
   // 1b. Fetch active product_variants rows (the admin "Color Options" editor saves here).
   //     These take precedence over the product's colors/sizes columns.
@@ -405,7 +405,7 @@ export default async function ProductDetailPage({ params }: { params: any }) {
         variant_name: color.trim(),
         price: productData.price,
         original_price: productData.originalPrice || null,
-        stock_quantity: 20
+        stock_quantity: Number(productData.stock) || 0
       }))
     }
 
@@ -419,11 +419,11 @@ export default async function ProductDetailPage({ params }: { params: any }) {
         variant_name: size.trim(),
         price: productData.price,
         original_price: productData.originalPrice || null,
-        stock_quantity: 20
+        stock_quantity: Number(productData.stock) || 0
       }))
     }
     if (variants.length === 0) {
-      variants = [{ id: `${productData.id}-standard`, variant_name: 'Standard', price: productData.price, original_price: productData.originalPrice || null, stock_quantity: 20 }]
+      variants = [{ id: `${productData.id}-standard`, variant_name: 'Standard', price: productData.price, original_price: productData.originalPrice || null, stock_quantity: Number(productData.stock) || 0 }]
     }
   }
 
@@ -434,7 +434,7 @@ export default async function ProductDetailPage({ params }: { params: any }) {
   // A. Fetch highly targeted similar category items (Pulling up to 5)
   const { data: directSimilarData } = await supabase
     .from("products")
-    .select("id, name, price, originalPrice, image, category, tag, colors")
+    .select("id, name, price, originalPrice, image, category, tag, colors, stock, available")
     .eq("available", true)
     .eq("category", productData.category)
     .neq("id", productData.id)
@@ -449,7 +449,7 @@ export default async function ProductDetailPage({ params }: { params: any }) {
 
     const { data: fillerData } = await supabase
       .from("products")
-      .select("id, name, price, originalPrice, image, category, tag, colors")
+      .select("id, name, price, originalPrice, image, category, tag, colors, stock, available")
       .eq("available", true)
       .not("id", "in", `(${existingIds.join(',')})`)
       .limit(neededCount);
@@ -470,6 +470,8 @@ export default async function ProductDetailPage({ params }: { params: any }) {
     originalPrice: p.originalPrice || undefined,
     badge: p.tag || undefined,
     rating: 5.0,
+    stock: p.stock != null ? Number(p.stock) : undefined,
+    available: p.available ?? true,
     colorCount:p.colors 
   ? (Array.isArray(p.colors) 
       ? p.colors.length 
@@ -521,7 +523,7 @@ export default async function ProductDetailPage({ params }: { params: any }) {
               </div>
 
               <ProductDetailActions 
-                product={{ id: productData.id, name: productData.name, image_url: images[0], category_name: categoryName, variants: variants }}
+                product={{ id: productData.id, name: productData.name, image_url: images[0], category_name: categoryName, variants: variants, stock: productData.stock != null ? Number(productData.stock) : undefined, available: productData.available ?? true }}
               />
 
               {productData.description && (

@@ -15,6 +15,8 @@ interface Product {
   colorCount?: number
   rating: number
   reviewCount: number
+  stock?: number
+  available?: boolean
 }
 
 export default function NewArrivals({ products: dbProducts }: { products?: Product[] }) {
@@ -33,7 +35,7 @@ export default function NewArrivals({ products: dbProducts }: { products?: Produ
         const supabase = createClient()
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, price, originalPrice, image, tag')
+          .select('id, name, price, originalPrice, image, tag, stock, available')
           .eq('available', true)
           .limit(10)
 
@@ -50,7 +52,9 @@ export default function NewArrivals({ products: dbProducts }: { products?: Produ
               price: p.price,
               rating: 5.0,
               reviewCount: 30,
-              badge: p.tag || 'New'
+              badge: p.tag || 'New',
+              stock: p.stock != null ? Number(p.stock) : undefined,
+              available: p.available ?? true
             }))
           
           if (filtered.length > 0) {
@@ -129,6 +133,8 @@ export default function NewArrivals({ products: dbProducts }: { products?: Produ
               category_name={product.category_name}
               badge={product.badge}
               colorCount={product.colorCount}
+              stock={product.stock}
+              available={product.available}
             />
           ))}
           </div>

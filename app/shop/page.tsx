@@ -161,6 +161,7 @@ export default async function ShopPage({
       colors,
       tag,
       available,
+      stock,
       created_at
     `)
     .eq("available", true);
@@ -194,6 +195,8 @@ export default async function ShopPage({
     originalPrice: p.originalPrice || undefined,
     badge: p.tag || undefined, // Populates 'tag' into product grid tags badges
     rating: 5.0, // Fixed baseline aesthetic metric
+    stock: p.stock != null ? Number(p.stock) : undefined,
+    available: p.available ?? true,
     colorCount: Array.isArray(p.colors) 
   ? p.colors.length 
   : p.colors && typeof p.colors === 'string'

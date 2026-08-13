@@ -434,7 +434,7 @@ export const usps = [
 export const navLinks = [
   { label: "Home", href: "/" },
   { label: "Shop", href: "/shop" },
-  
+  { label: "Track Order", href: "/track-order" },
   { label: "About Us", href: "/about" },
   { label: "Contact us", href: "/contact" },
 ];

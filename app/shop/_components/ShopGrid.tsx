@@ -23,6 +23,8 @@ type Product = {
   badge?: string
   rating: number
   colorCount?: number
+  stock?: number
+  available?: boolean
 }
 
 type Category = {
@@ -355,6 +357,7 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
                   const catName = p.category_name || (categories.find(c => c.id === p.category_id)?.name) || "Jewelry"
                   const itemStrikePrice = p.originalPrice || p.oldPrice
                   const favorited = isInWishlist(p.id)
+                  const soldOut = (p.available !== undefined && p.available === false) || (typeof p.stock === 'number' && p.stock <= 0)
                   
                   return (
                     <div key={p.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-neutral-100 flex flex-col transition-all duration-300 relative">
@@ -375,13 +378,17 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
                           alt={p.name}
                           fill
                           sizes="(max-width: 768px) 50vw, 320px"
-                          className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                          className={`object-cover transition-transform duration-700 group-hover:scale-[1.03] ${soldOut ? 'grayscale opacity-60' : ''}`}
                         />
-                        {p.badge && (
+                        {soldOut ? (
+                          <span className="absolute top-3 left-3 bg-rose-600 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
+                            Sold Out
+                          </span>
+                        ) : p.badge ? (
                           <span className="absolute top-3 left-3 bg-neutral-900 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
                             {p.badge}
                           </span>
-                        )}
+                        ) : null}
                         <span className="absolute bottom-3 right-3 bg-[#f5a24a] text-white backdrop-blur-xs text-[11px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-md shadow-md">
                           {catName}
                         </span>
@@ -416,8 +423,13 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
 
                         {/* Buy Now layout buttons */}
                         <div className="mt-3 space-y-2">
-                          <button
-                            onClick={async () => {
+                          {soldOut ? (
+                            <div className="w-full text-center rounded-xl bg-neutral-100 text-neutral-400 text-xs font-semibold py-2.5 flex items-center justify-center cursor-not-allowed">
+                              Sold Out
+                            </div>
+                          ) : (
+                            <button
+                              onClick={async () => {
                               addToCart({
                                 id: p.id,
                                 name: p.name,
@@ -451,6 +463,7 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
                           >
                             Buy now
                           </button>
+                          )}
                         </div>
                       </div>
                     </div>

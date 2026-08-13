@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import FloatingWhatsApp from '@/components/FloatingWhatsApp'
@@ -12,6 +12,14 @@ export default function TrackOrderPage() {
   const [loading, setLoading] = useState(false)
   const [trackingInfo, setTrackingInfo] = useState<any>(null)
   const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const initialOrder = params.get('order')
+    if (initialOrder) {
+      setOrderNumber(initialOrder.trim().toUpperCase())
+    }
+  }, [])
 
   const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,19 +36,7 @@ export default function TrackOrderPage() {
       const res = await trackOrder(orderNumber.trim(), email.trim() || undefined)
 
       if (!res.found) {
-        // Fallback for demo: if order exists in local storage or is mock
-        if (orderNumber.trim().toUpperCase().startsWith('BB-')) {
-          setTrackingInfo({
-            order_number: orderNumber.trim().toUpperCase(),
-            order_status: 'dispatched',
-            payment_status: 'paid',
-            total_amount: 1999,
-            created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-            mock: true
-          })
-        } else {
-          setErrorMsg('Order not found. Please double-check your order number (e.g. BB-1002).')
-        }
+        setErrorMsg('Order not found. Please double-check your order number (e.g. BB-1002).')
       } else {
         setTrackingInfo({
           order_number: res.order_number,
@@ -48,7 +44,6 @@ export default function TrackOrderPage() {
           payment_status: res.payment_status,
           total_amount: res.total,
           created_at: res.created_at,
-          mock: false
         })
       }
     } catch (err) {
@@ -60,8 +55,10 @@ export default function TrackOrderPage() {
   }
 
   const getStatusStep = (status: string) => {
-    const steps = ['pending', 'processing', 'dispatched', 'delivered']
-    return steps.indexOf(status.toLowerCase())
+    const s = (status || '').toLowerCase()
+    if (s === 'pending' || s === 'confirmed') return 0
+    const steps = ['processing', 'shipped', 'delivered']
+    return steps.indexOf(s)
   }
 
   const activeStep = trackingInfo ? getStatusStep(trackingInfo.order_status) : -1
@@ -165,9 +162,6 @@ export default function TrackOrderPage() {
             <div className="bg-neutral-50 rounded-2xl p-4 text-xs text-neutral-500 space-y-2">
               <p><strong>Payment Status:</strong> {trackingInfo.payment_status.toUpperCase()}</p>
               <p><strong>Estimated Delivery:</strong> 3-5 business days from dispatch.</p>
-              {trackingInfo.mock && (
-                <p className="text-neutral-400 italic">This is a simulated tracking display for the demo order.</p>
-              )}
             </div>
           </div>
         )}

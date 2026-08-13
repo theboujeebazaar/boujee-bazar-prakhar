@@ -60,7 +60,9 @@ export default function WishlistPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {wishlist.map((item) => (
+              {wishlist.map((item) => {
+                const soldOut = (item as any).available === false || (typeof (item as any).stock === 'number' && (item as any).stock <= 0)
+                return (
                 <div key={item.id} className="group bg-white rounded-2xl overflow-hidden border border-neutral-100 shadow-sm hover:shadow-md transition-all flex flex-col relative">
                   
                   {/* Remove Button */}
@@ -78,8 +80,13 @@ export default function WishlistPage() {
                       alt={item.name}
                       fill
                       sizes="(max-width: 768px) 50vw, 280px"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      className={`object-cover transition-transform duration-500 group-hover:scale-105 ${soldOut ? 'grayscale opacity-60' : ''}`}
                     />
+                    {soldOut && (
+                      <span className="absolute top-3 left-3 bg-rose-600 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
+                        Sold Out
+                      </span>
+                    )}
                   </Link>
 
                   <div className="p-4 flex flex-col flex-1">
@@ -98,15 +105,21 @@ export default function WishlistPage() {
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => handleAddToCart(item)}
-                      className="w-full text-center rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold py-3 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <i className="fa-solid fa-bag-shopping"></i> Add to Cart
-                    </button>
+                    {soldOut ? (
+                      <div className="w-full text-center rounded-xl bg-neutral-100 text-neutral-400 text-xs font-semibold py-3 cursor-not-allowed flex items-center justify-center gap-2">
+                        <i className="fa-solid fa-bag-shopping"></i> Sold Out
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleAddToCart(item)}
+                        className="w-full text-center rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold py-3 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <i className="fa-solid fa-bag-shopping"></i> Add to Cart
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
 

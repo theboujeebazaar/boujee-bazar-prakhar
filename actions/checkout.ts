@@ -50,18 +50,29 @@ export async function createOrder(
   if (productIds.length > 0) {
     const { data } = await supabaseAdmin
       .from('products')
-      .select('id, price')
+      .select('id, price, stock, available')
       .in('id', productIds)
     dbProducts = data || []
   }
 
-  const dbPriceMap = new Map(dbProducts.map(p => [p.id, Number(p.price) || 0]))
+  const dbProductMap = new Map(dbProducts.map(p => [p.id, p]))
 
   let subtotal = 0
   const validatedCartItems = []
   for (const item of cartItemsFromFrontend) {
-    const realPrice = dbPriceMap.has(item.id) ? dbPriceMap.get(item.id)! : (Number(item.price) || 0)
+    const dbProduct = dbProductMap.get(item.id)
     const quantity = Math.max(1, Number(item.quantity) || 1)
+    if (!dbProduct) {
+      return { success: false, error: `"${item.name || 'One of your items'}" is no longer available for purchase. Please remove it from your cart.` }
+    }
+    if (dbProduct.available === false) {
+      return { success: false, error: `"${item.name || 'One of your items'}" is currently out of stock. Please remove it from your cart.` }
+    }
+    const stock = Number(dbProduct.stock)
+    if (!Number.isFinite(stock) || stock < quantity) {
+      return { success: false, error: `Only ${Math.max(0, Math.floor(stock) || 0)} left in stock for "${item.name || 'one of your items'}". Please reduce the quantity.` }
+    }
+    const realPrice = Number(dbProduct.price) || 0
     subtotal += (realPrice * quantity)
     validatedCartItems.push({
       ...item,
@@ -99,10 +110,9 @@ export async function createOrder(
   const total_amount = Math.max(0, subtotal + shipping_cost + cod_cost - couponDiscount - online_discount_amount)
 
   const order_number = `BB-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
-  const orderMockId = crypto.randomUUID()
 
   const orderRecordPayload = {
-    id: orderMockId,
+    id: order_number,
     user_id: userId,
     customer_name: addressData.fullName || addressData.full_name || 'Premium Collector',
     customer_email: addressData.email || '',
@@ -144,10 +154,10 @@ export async function createOrder(
       const options = {
         amount: Math.round(total_amount * 100),
         currency: 'INR',
-        receipt: orderMockId,
+        receipt: order_number,
         payment_capture: 1,
         notes: {
-          internal_order_id: orderMockId,
+          internal_order_id: order_number,
           customer_email: addressData.email || '',
         }
       }
@@ -158,7 +168,7 @@ export async function createOrder(
         await supabaseAdmin
           .from('orders')
           .update({ notes: `Razorpay Order: ${rzpOrder.id}` })
-          .eq('id', orderMockId)
+          .eq('id', order_number)
       } catch (err) {
         console.warn('Could not update notes on order record:', err)
       }
@@ -167,14 +177,14 @@ export async function createOrder(
         success: true,
         isRazorpay: true,
         razorpayOrderId: rzpOrder.id,
-        orderId: orderMockId,
+        orderId: order_number,
         orderNumber: order_number,
         amount: options.amount,
       }
     } catch (err: any) {
       console.error('Razorpay Gateway Error:', err)
-      // Cleanup pending order if gateway initialization fails
-      await supabaseAdmin.from('orders').delete().eq('id', orderMockId)
+      // Cleanup pending order only when the gateway order was never created
+      await supabaseAdmin.from('orders').delete().eq('id', order_number).eq('payment_status', 'pending')
       return { success: false, error: 'Failed to initialize payment gateway window.' }
     }
   }
@@ -191,7 +201,7 @@ export async function createOrder(
       const currentStock = Number(product.stock) || 0
       const orderedQty = Number(item.quantity) || 1
       const newStock = Math.max(0, currentStock - orderedQty)
-      await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id)
+      await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id).gte('stock', orderedQty)
     }
   }
 
@@ -208,7 +218,7 @@ export async function createOrder(
     success: true, 
     isRazorpay: false, 
     order_number: order_number, 
-    orderId: orderMockId 
+    orderId: order_number 
   }
 }
 
@@ -216,16 +226,87 @@ export async function cancelPendingOrder(orderId: string) {
   if (!orderId) return
   try {
     const supabaseAdmin = createAdminClient()
-    await supabaseAdmin
+
+    const { data: existing } = await supabaseAdmin
       .from('orders')
-      .delete()
+      .select('id, payment_status, notes')
       .eq('id', orderId)
-      .eq('payment_status', 'pending')
-    
+      .maybeSingle()
+
+    if (!existing || existing.payment_status !== 'pending') return
+
+    if (existing.notes) {
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          payment_status: 'failed',
+          status: 'cancelled',
+          notes: `${existing.notes} | Cancelled by customer`,
+        })
+        .eq('id', orderId)
+        .eq('payment_status', 'pending')
+    } else {
+      await supabaseAdmin
+        .from('orders')
+        .delete()
+        .eq('id', orderId)
+        .eq('payment_status', 'pending')
+    }
+
     revalidatePath('/admin/orders')
   } catch (e) {
-    console.warn('Failed to delete pending order on cancel:', e)
+    console.warn('Failed to cancel pending order:', e)
   }
+}
+
+async function settlePaidOrder(
+  orderId: string,
+  txnId?: string | null,
+  note?: string
+) {
+  const supabaseAdmin = createAdminClient()
+
+  const updateData: any = {
+    payment_status: 'paid',
+    status: 'confirmed',
+    notes: note || `Paid via Razorpay${txnId ? ` (Txn: ${txnId})` : ''}`,
+  }
+  if (txnId) updateData.razorpay_payment_id = txnId
+
+  const { data: updatedOrders, error: updateError } = await supabaseAdmin
+    .from('orders')
+    .update(updateData)
+    .eq('id', orderId)
+    .eq('payment_status', 'pending')
+    .select('items')
+
+  if (updateError) {
+    console.error("Failed adjusting payment confirmation flags on orders table:", updateError.message)
+    return false
+  }
+
+  if (!updatedOrders || updatedOrders.length === 0) {
+    return false
+  }
+
+  const orderItems = updatedOrders[0]?.items || []
+  for (const item of orderItems) {
+    if (!item?.id) continue
+    const { data: product } = await supabaseAdmin
+      .from('products')
+      .select('stock')
+      .eq('id', item.id)
+      .maybeSingle()
+
+    if (product) {
+      const currentStock = Number(product.stock) || 0
+      const orderedQty = Number(item.quantity) || 1
+      const newStock = Math.max(0, currentStock - orderedQty)
+      await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id).gte('stock', orderedQty)
+    }
+  }
+
+  return true
 }
 
 export async function verifyRazorpayPayment(
@@ -259,46 +340,7 @@ export async function verifyRazorpayPayment(
     return { success: false, error: 'Payment signature verification failed. Untrusted source transaction.' }
   }
 
-  try {
-    const supabaseAdmin = createAdminClient()
-
-    const updateData = {
-      payment_status: 'paid',
-      status: 'confirmed',
-      notes: `Paid via Razorpay (Txn: ${razorpay_payment_id})`,
-    }
-
-    // Update order status in database
-    const { data: updatedOrders, error: updateError } = await supabaseAdmin
-      .from('orders')
-      .update(updateData)
-      .eq('id', internal_order_id)
-      .select('items')
-
-    if (updateError) {
-      console.error("Failed adjusting payment confirmation flags on orders table:", updateError.message)
-    }
-
-    // Decrement product stock upon verified payment
-    const orderItems = updatedOrders?.[0]?.items || []
-    for (const item of orderItems) {
-      if (!item.id) continue
-      const { data: product } = await supabaseAdmin
-        .from('products')
-        .select('stock')
-        .eq('id', item.id)
-        .maybeSingle()
-
-      if (product) {
-        const currentStock = Number(product.stock) || 0
-        const orderedQty = Number(item.quantity) || 1
-        const newStock = Math.max(0, currentStock - orderedQty)
-        await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id)
-      }
-    }
-  } catch (err) {
-    console.error("Failed adjusting payment confirmation flags on live table:", err)
-  }
+  await settlePaidOrder(internal_order_id, razorpay_payment_id, `Paid via Razorpay (Txn: ${razorpay_payment_id})`)
 
   const cookieStore = await cookies()
   cookieStore.delete('boujee-cart-token')
@@ -309,6 +351,32 @@ export async function verifyRazorpayPayment(
   revalidatePath('/admin/orders')
   revalidatePath('/admin')
   return { success: true }
+}
+
+export async function checkPaymentStatus(orderId: string) {
+  if (!orderId) return { found: false, error: 'No order reference provided.' }
+  try {
+    const supabaseAdmin = createAdminClient()
+    const { data } = await supabaseAdmin
+      .from('orders')
+      .select('id, status, payment_status, total, payment_method')
+      .eq('id', orderId)
+      .maybeSingle()
+
+    if (!data) return { found: false, error: 'Order not found. It may have been removed.' }
+
+    return {
+      found: true,
+      orderId: data.id,
+      status: data.status,
+      payment_status: data.payment_status,
+      total: Number(data.total || 0),
+      payment_method: data.payment_method,
+    }
+  } catch (err) {
+    console.warn('Failed to check payment status:', err)
+    return { found: false, error: 'Could not check payment status right now. Please try again.' }
+  }
 }
 
 export async function processCheckout(

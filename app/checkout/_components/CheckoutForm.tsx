@@ -745,9 +745,9 @@ import React, { useState, useEffect, useTransition } from 'react'
 import { useCart } from '@/context/CartContext'
 import { useToast } from '@/context/ToastContext'
 import { validateCoupon } from '@/actions/admin/coupons'
-import { processCheckout, verifyRazorpayPayment, cancelPendingOrder } from '@/actions/checkout'
+import { processCheckout, verifyRazorpayPayment, cancelPendingOrder, checkPaymentStatus } from '@/actions/checkout'
 import { SITE } from '@/lib/data'
-import { Truck, Tag, CreditCard, ShoppingBag, CheckCircle2, Lock, Plus, Minus, X, Loader2 } from 'lucide-react'
+import { Truck, Tag, CreditCard, ShoppingBag, CheckCircle2, Lock, Plus, Minus, X, Loader2, Clock, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Script from 'next/script'
@@ -804,6 +804,11 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
 
   // Success Modal State
   const [placedOrder, setPlacedOrder] = useState<any>(null)
+
+  // Pending / Recovery State
+  const [pendingOrder, setPendingOrder] = useState<any>(null)
+  const [checkingStatus, setCheckingStatus] = useState(false)
+  const [pendingFailed, setPendingFailed] = useState(false)
 
   // 1. Prefill from local storage on mount
   useEffect(() => {
@@ -920,7 +925,13 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
           order_id: orderData.razorpayOrderId,
           modal: {
             ondismiss: function () {
-              cancelPendingOrder(orderData.orderId)
+              setPendingOrder({
+                ...orderData,
+                shippingAddress: addressString,
+                total: grandTotal,
+                items: [...cart],
+              })
+              showToast('Payment not completed. Your order is saved as pending — you can check its status or retry.', 'info')
             }
           },
           handler: async function (response: any) {
@@ -940,6 +951,7 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
                 payment_id: response.razorpay_payment_id
               })
               clearCart()
+              router.push(`/checkout/success?orderId=${encodeURIComponent(orderData.orderId)}`)
             } else {
               showToast('Payment verification failed. Please contact support.', 'error')
             }
@@ -956,7 +968,13 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
 
         const rzp1 = new (window as any).Razorpay(options);
         rzp1.on('payment.failed', function (response: any){
-          cancelPendingOrder(orderData.orderId)
+          setPendingOrder({
+            ...orderData,
+            shippingAddress: addressString,
+            total: grandTotal,
+            items: [...cart],
+          })
+          setPendingFailed(true)
           showToast("Payment failed! Reason: " + (response.error?.description || 'Transaction failed'), "error");
         });
         rzp1.open();
@@ -1000,8 +1018,46 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
           shippingAddress: addressString
         })
         clearCart()
+        router.push(`/checkout/success?orderId=${encodeURIComponent(res.orderId)}`)
       }
     }
+  }
+
+  const handleCheckPaymentStatus = async () => {
+    if (!pendingOrder) return
+    setCheckingStatus(true)
+    const res = await checkPaymentStatus(pendingOrder.orderId)
+    setCheckingStatus(false)
+    if (!res.found) {
+      showToast(res.error || 'Order not found. It may have been removed.', 'error')
+      return
+    }
+    if (res.payment_status === 'paid' || res.status === 'confirmed') {
+      setPendingOrder(null)
+      setPendingFailed(false)
+      clearCart()
+      router.push(`/checkout/success?orderId=${encodeURIComponent(res.orderId)}`)
+    } else if (res.payment_status === 'failed') {
+      setPendingFailed(true)
+      showToast('This payment was marked failed by the gateway. You can retry or contact support.', 'error')
+    } else {
+      setPendingFailed(false)
+      showToast('Your payment is still pending with the gateway. You can retry now.', 'info')
+    }
+  }
+
+  const handleRetryPayment = async () => {
+    if (!pendingOrder) return
+    setPendingFailed(false)
+    await handleRazorpayPayment(pendingOrder, pendingOrder.shippingAddress || '')
+  }
+
+  const handleCancelPendingOrder = async () => {
+    if (!pendingOrder) return
+    await cancelPendingOrder(pendingOrder.orderId)
+    setPendingOrder(null)
+    setPendingFailed(false)
+    showToast('Your pending order has been cancelled.', 'success')
   }
 
   // Handle Checkout Submit
@@ -1033,14 +1089,14 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
 
   const getWhatsappLink = () => {
     if (!placedOrder) return ''
-    const shortId = `#${String(placedOrder.id).substring(0, 8).toUpperCase()}`
+    const orderRef = placedOrder.order_number || `#${String(placedOrder.id).substring(0, 8).toUpperCase()}`
     const itemsText = placedOrder.items.map((i: any) => `- ${i.name} (x${i.quantity})`).join('\n')
-    const message = `Hi The Boujee Bazaar!\n\nI just placed an order:\nOrder ID: *${shortId}*\nItems:\n${itemsText}\nTotal Amount: *₹${placedOrder.total.toLocaleString('en-IN')}*\nPayment Method: *${paymentMethod}*\n\nShipping Address:\n${placedOrder.shippingAddress}\n\nPlease confirm my order. Thank you!`
+    const message = `Hi The Boujee Bazaar!\n\nI just placed an order:\nOrder Number: *${orderRef}*\nItems:\n${itemsText}\nTotal Amount: *₹${placedOrder.total.toLocaleString('en-IN')}*\nPayment Method: *${paymentMethod}*\n\nShipping Address:\n${placedOrder.shippingAddress}\n\nPlease confirm my order. Thank you!`
     return `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`
   }
 
   if (placedOrder) {
-    const shortId = `#${String(placedOrder.id).substring(0, 8).toUpperCase()}`
+    const orderRef = placedOrder.order_number || `#${String(placedOrder.id).substring(0, 8).toUpperCase()}`
     return (
       <div className="max-w-md mx-auto bg-white rounded-3xl p-8 border border-neutral-100 shadow-xl text-center space-y-6 animate-fade-in mt-6" style={{ fontFamily: 'Poppins, sans-serif' }}>
         <div className="w-16 h-16 bg-neutral-50 text-[#c5a880] border border-[#c5a880]/20 rounded-full flex items-center justify-center mx-auto">
@@ -1052,8 +1108,8 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
         </div>
         <div className="p-4 bg-neutral-50/50 rounded-2xl border border-neutral-100 text-left space-y-3">
           <div className="flex justify-between text-xs">
-            <span className="text-neutral-400 uppercase font-semibold">Order ID</span>
-            <span className="font-mono font-bold text-neutral-900">{shortId}</span>
+            <span className="text-neutral-400 uppercase font-semibold">Order Number</span>
+            <span className="font-mono font-bold text-neutral-900">{orderRef}</span>
           </div>
           {placedOrder.payment_id && (
             <div className="flex justify-between text-xs">
@@ -1082,9 +1138,79 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
             </svg>
             Confirm via WhatsApp
           </a>
+          <Link
+            href={`/track-order?order=${encodeURIComponent(orderRef)}`}
+            className="w-full inline-flex items-center justify-center py-3 text-sm text-[#c5a880] hover:text-neutral-900 font-semibold transition-colors"
+          >
+            Track My Order
+          </Link>
           <a href="/" className="w-full inline-flex items-center justify-center py-3 text-sm text-neutral-500 hover:text-neutral-900 font-semibold transition-colors">
             Return to Store
           </a>
+        </div>
+      </div>
+    )
+  }
+
+  if (pendingOrder) {
+    const pendingRef = pendingOrder.orderNumber || pendingOrder.orderId
+    return (
+      <div className="max-w-md mx-auto bg-white rounded-3xl p-8 border border-neutral-100 shadow-xl text-center space-y-6 animate-fade-in mt-6" style={{ fontFamily: 'Poppins, sans-serif' }}>
+        <div className="w-16 h-16 bg-amber-50 text-[#c5a880] border border-[#c5a880]/20 rounded-full flex items-center justify-center mx-auto">
+          <Clock className="w-9 h-9" />
+        </div>
+        <div>
+          <h2 className="font-display font-bold text-2xl text-neutral-900" style={{ fontFamily: 'Playfair Display, serif' }}>Payment Not Completed</h2>
+          <p className="text-sm text-neutral-500 mt-1 leading-relaxed">
+            Your order has been saved as pending. No money will be charged unless the payment actually goes through.
+          </p>
+        </div>
+        <div className="p-4 bg-neutral-50/50 rounded-2xl border border-neutral-100 text-left space-y-3">
+          <div className="flex justify-between text-xs">
+            <span className="text-neutral-400 uppercase font-semibold">Order Number</span>
+            <span className="font-mono font-bold text-neutral-900">{pendingRef}</span>
+          </div>
+          {pendingFailed && (
+            <div className="p-2.5 bg-red-50 text-red-600 rounded-xl text-xs border border-red-100 font-medium">
+              Your payment was declined. Please retry or contact support.
+            </div>
+          )}
+        </div>
+        <div className="space-y-2.5">
+          <button
+            type="button"
+            onClick={handleCheckPaymentStatus}
+            disabled={checkingStatus}
+            className="w-full py-3 px-4 bg-neutral-900 text-white font-semibold rounded-full shadow-md hover:bg-neutral-800 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+          >
+            {checkingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Check Payment Status
+          </button>
+          <button
+            type="button"
+            onClick={handleRetryPayment}
+            className="w-full py-3 px-4 bg-[#c5a880] text-white font-semibold rounded-full shadow-md hover:opacity-90 transition-all text-sm"
+          >
+            Retry Payment
+          </button>
+          <button
+            type="button"
+            onClick={handleCancelPendingOrder}
+            className="w-full py-3 px-4 bg-white border border-neutral-200 text-neutral-600 font-semibold rounded-full hover:bg-neutral-50 transition-all text-sm"
+          >
+            Cancel Pending Order
+          </button>
+          <a
+            href={`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(`Hi The Boujee Bazaar! I need help with my order ${pendingRef}.`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full py-3 px-4 bg-neutral-50 text-neutral-700 font-semibold rounded-full hover:bg-neutral-100 transition-all text-sm"
+          >
+            Contact Support
+          </a>
+          <Link href="/" className="block w-full py-3 text-sm text-neutral-500 hover:text-neutral-900 font-semibold transition-colors">
+            Return to Store
+          </Link>
         </div>
       </div>
     )

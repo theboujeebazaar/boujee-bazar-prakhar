@@ -56,6 +56,46 @@ export async function POST(req: Request) {
 
     const supabaseAdmin = createAdminClient()
 
+    const settlePaidOrder = async (orderId: string, razorpayPaymentId?: string) => {
+      const updateData: any = {
+        payment_status: 'paid',
+        status: 'confirmed',
+        notes: `Paid via Razorpay Webhook${razorpayPaymentId ? ` (Txn: ${razorpayPaymentId})` : ''}`,
+      }
+      if (razorpayPaymentId) updateData.razorpay_payment_id = razorpayPaymentId
+
+      const { data: updatedOrders, error: updateErr } = await supabaseAdmin
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId)
+        .eq('payment_status', 'pending')
+        .select('items')
+
+      if (updateErr) {
+        console.error('[Razorpay Webhook Error]: DB update failed while settling order:', updateErr.message)
+        return
+      }
+
+      if (!updatedOrders || updatedOrders.length === 0) return
+
+      const orderItems = updatedOrders[0]?.items || []
+      for (const item of orderItems) {
+        if (!item?.id) continue
+        const { data: product } = await supabaseAdmin
+          .from('products')
+          .select('stock')
+          .eq('id', item.id)
+          .maybeSingle()
+
+        if (product) {
+          const currentStock = Number(product.stock) || 0
+          const orderedQty = Number(item.quantity) || 1
+          const newStock = Math.max(0, currentStock - orderedQty)
+          await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id).gte('stock', orderedQty)
+        }
+      }
+    }
+
     switch (event) {
       case 'payment.captured': {
         const payment = payload?.payment?.entity
@@ -67,22 +107,9 @@ export async function POST(req: Request) {
 
         console.log(`[Razorpay Webhook]: Processing payment.captured for payment ${razorpayPaymentId}, order ${razorpayOrderId}, internal order ${internalOrderId}`)
 
-        let query = supabaseAdmin.from('orders').update({
-          payment_status: 'paid',
-          status: 'confirmed',
-          notes: `Paid via Razorpay Webhook (Txn: ${razorpayPaymentId})`,
-        })
-
         if (internalOrderId) {
-          query = query.eq('id', internalOrderId)
-        }
-
-        const { error: updateErr } = await query
-
-        if (updateErr) {
-          console.error('[Razorpay Webhook Error]: DB update failed for payment.captured:', updateErr.message)
-        } else {
-          console.log(`[Razorpay Webhook]: Order status updated to PAID & CONFIRMED for payment ${razorpayPaymentId}`)
+          await settlePaidOrder(internalOrderId, razorpayPaymentId)
+          console.log(`[Razorpay Webhook]: Order settled as PAID & CONFIRMED for payment ${razorpayPaymentId}`)
         }
         break
       }
@@ -120,14 +147,8 @@ export async function POST(req: Request) {
         console.log(`[Razorpay Webhook]: Processing order.paid for razorpay order ${razorpayOrderId}, internal order ${internalOrderId}`)
 
         if (internalOrderId) {
-          const { error: updateErr } = await supabaseAdmin.from('orders').update({
-            payment_status: 'paid',
-            status: 'confirmed',
-          }).eq('id', internalOrderId)
-
-          if (updateErr) {
-            console.error('[Razorpay Webhook Error]: DB update failed for order.paid:', updateErr.message)
-          }
+          await settlePaidOrder(internalOrderId)
+          console.log(`[Razorpay Webhook]: Order settled as PAID & CONFIRMED for razorpay order ${razorpayOrderId}`)
         }
         break
       }

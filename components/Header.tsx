@@ -486,7 +486,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import CartDrawer from "./CartDrawer";
-import { Search, Heart, ShoppingBag, User, LogOut, ShieldAlert, ChevronDown, Menu, X } from "lucide-react";
+import { Search, Heart, ShoppingBag, User, LogOut, ShieldAlert, ChevronDown, Menu, X, Package } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { getShippingSettings } from "@/actions/admin/shipping";
 import { getCompleteStoreConfig } from "@/actions/admin/announcements";
@@ -772,6 +772,9 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
                 <a href="/profile" title="Manage Profile" className="text-neutral-800 hover:text-[#c5a880] transition-colors p-1">
                   <User className="w-5 h-5" />
                 </a>
+                <a href="/track-order" title="Track My Order" className="text-neutral-800 hover:text-[#c5a880] transition-colors p-1">
+                  <Package className="w-5 h-5" />
+                </a>
               </div>
             )}
 
@@ -874,6 +877,9 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
                 )}
                 <a href="/profile" onClick={() => setOpen(false)} className="text-sm font-semibold text-[#c5a880] py-2.5 flex items-center justify-between">
                   <span>Manage Profile</span> <User className="w-4 h-4" />
+                </a>
+                <a href="/track-order" onClick={() => setOpen(false)} className="text-sm font-semibold text-[#c5a880] py-2.5 flex items-center justify-between">
+                  <span>Track My Order</span> <Package className="w-4 h-4" />
                 </a>
               </div>
             )}

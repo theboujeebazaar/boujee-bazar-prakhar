@@ -12,6 +12,8 @@ interface Product {
   rating: number
   reviewCount: number
   badge?: string
+  stock?: number
+  available?: boolean
 }
 
 export default function SaleSection({ products: dbProducts }: { products?: Product[] }) {
@@ -30,7 +32,7 @@ export default function SaleSection({ products: dbProducts }: { products?: Produ
         const supabase = createClient()
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, price, originalPrice, image, tag')
+          .select('id, name, price, originalPrice, image, tag, stock, available')
           .eq('available', true)
           .limit(20)
 
@@ -47,7 +49,9 @@ export default function SaleSection({ products: dbProducts }: { products?: Produ
               price: p.price,
               rating: 5.0,
               reviewCount: 45,
-              badge: p.tag || 'Sale'
+              badge: p.tag || 'Sale',
+              stock: p.stock != null ? Number(p.stock) : undefined,
+              available: p.available ?? true
             }))
           
           if (filtered.length > 0) {
@@ -119,6 +123,8 @@ export default function SaleSection({ products: dbProducts }: { products?: Produ
               price={product.price}
               rating={product.rating}
               reviewCount={product.reviewCount}
+              stock={product.stock}
+              available={product.available}
             />
           ))}
         </div>

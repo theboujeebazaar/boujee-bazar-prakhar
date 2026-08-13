@@ -16,7 +16,7 @@ export async function trackOrder(
   email?: string
 ): Promise<TrackOrderResult> {
   const supabase = createAdminClient()
-  const number = orderNumber.trim()
+  const number = orderNumber.trim().toUpperCase()
 
   if (!number) return { found: false }
 
@@ -42,5 +42,31 @@ export async function trackOrder(
     created_at: data.created_at,
     total: Number(data.total || 0),
     found: true,
+  }
+}
+
+export async function getOrderById(orderId: string) {
+  if (!orderId) return null
+  const supabase = createAdminClient()
+  const id = orderId.trim()
+  if (!id) return null
+
+  const { data } = await supabase
+    .from('orders')
+    .select('id, status, payment_status, total, created_at, payment_method, customer_name, items')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!data) return null
+
+  return {
+    id: data.id,
+    status: data.status,
+    payment_status: data.payment_status,
+    total: Number(data.total || 0),
+    created_at: data.created_at,
+    payment_method: data.payment_method,
+    customer_name: data.customer_name,
+    items: data.items || [],
   }
 }

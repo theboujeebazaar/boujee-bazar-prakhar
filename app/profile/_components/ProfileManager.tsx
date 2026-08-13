@@ -247,6 +247,9 @@ export default function ProfileManager({ adminProfile, orders = [] }: { adminPro
                       return `${day}/${month}/${year}`
                     })()}
                   </div>
+                  <a href={`/track-order?order=${order.id}`} className="inline-flex items-center gap-1 mt-1.5 text-xs font-bold text-gold hover:text-emerald transition-colors">
+                    <Package className="w-3.5 h-3.5" /> Track
+                  </a>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-emerald">₹{order.total ?? order.total_amount ?? 0}</div>

@@ -194,7 +194,7 @@ export default async function Home() {
   // Fetch products
   const { data: productsData } = await supabase
     .from('products')
-    .select('id, name, price, originalPrice, image, category, subcategory, tag, available, is_new_arrival, is_best_seller')
+    .select('id, name, price, originalPrice, image, category, subcategory, tag, available, stock, is_new_arrival, is_best_seller')
     .eq('available', true)
 
   const rawSlides = homepageConfig?.hero_images || []
@@ -216,6 +216,8 @@ export default async function Home() {
     subcategory: p.subcategory?.trim().toLowerCase() || '',
     is_new_arrival: p.is_new_arrival,
     is_best_seller: p.is_best_seller,
+    stock: p.stock != null ? Number(p.stock) : undefined,
+    available: p.available ?? true,
   }))
 
   // Filter products for the specific sections

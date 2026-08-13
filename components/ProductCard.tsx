@@ -31,6 +31,8 @@ interface ProductCardProps {
   badge?: string
   category_name?: string
   colorCount?: number
+  stock?: number
+  available?: boolean
 }
 
 export default function ProductCard({
@@ -44,13 +46,16 @@ export default function ProductCard({
   originalPrice,
   badge,
   category_name = "Jewelry",
-  colorCount
+  colorCount,
+  stock,
+  available
 }: ProductCardProps) {
   const { toggleWishlist, isInWishlist } = useWishlist()
   const { addToCart } = useCart()
   const { showToast } = useToast()
   
   const favorited = isInWishlist(id)
+  const soldOut = (available !== undefined && available === false) || (typeof stock === 'number' && stock <= 0)
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -117,13 +122,17 @@ export default function ProductCard({
           alt={alt}
           fill
           sizes="(max-width: 768px) 50vw, 320px"
-          className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+          className={`object-cover transition-transform duration-700 group-hover:scale-[1.03] ${soldOut ? 'grayscale opacity-60' : ''}`}
         />
-        {badge && (
+        {soldOut ? (
+          <span className="absolute top-3 left-3 bg-rose-600 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
+            Sold Out
+          </span>
+        ) : badge ? (
           <span className="absolute top-3 left-3 bg-neutral-900 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
             {badge}
           </span>
-        )}
+        ) : null}
         <span className="absolute bottom-3 right-3 bg-[#f5a24a] text-white backdrop-blur-xs text-[11px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-md shadow-md">
           {category_name}
         </span>
@@ -158,12 +167,18 @@ export default function ProductCard({
 
         {/* Buy Now layout buttons */}
         <div className="mt-3 space-y-2">
-          <button
-            onClick={handleAddToCart}
-            className="w-full text-center rounded-xl bg-neutral-900 text-white text-xs font-semibold py-2.5 hover:bg-neutral-800 transition-colors flex items-center justify-center shadow-xs"
-          >
-            Buy now
-          </button>
+          {soldOut ? (
+            <div className="w-full text-center rounded-xl bg-neutral-100 text-neutral-400 text-xs font-semibold py-2.5 flex items-center justify-center cursor-not-allowed">
+              Sold Out
+            </div>
+          ) : (
+            <button
+              onClick={handleAddToCart}
+              className="w-full text-center rounded-xl bg-neutral-900 text-white text-xs font-semibold py-2.5 hover:bg-neutral-800 transition-colors flex items-center justify-center shadow-xs"
+            >
+              Buy now
+            </button>
+          )}
         </div>
       </div>
     </div>

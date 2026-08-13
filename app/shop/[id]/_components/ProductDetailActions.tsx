@@ -21,6 +21,8 @@ type ProductItem = {
   image_url: string | string[] // ✅ Fixed type to safely support string or array formats
   category_name?: string
   variants: ProductVariant[]
+  stock?: number
+  available?: boolean
 }
 
 export default function ProductDetailActions({ product }: { product: ProductItem }) {
@@ -32,8 +34,16 @@ export default function ProductDetailActions({ product }: { product: ProductItem
     product.variants.length > 0 ? product.variants[0] : null
   )
 
+  const productSoldOut = (product.available !== undefined && product.available === false) || (typeof product.stock === 'number' && product.stock <= 0)
+
   const currentPrice = selectedVariant ? selectedVariant.price : 0
   const currentoriginalPrice = selectedVariant ? selectedVariant.original_price : null
+
+  const maxQty = selectedVariant && selectedVariant.stock_quantity > 0
+    ? selectedVariant.stock_quantity
+    : typeof product.stock === 'number' && product.stock > 0
+      ? product.stock
+      : 999
 
   const cartItemId = `${product.id}-${selectedVariant?.id || 'default'}`
   const cartItem = cart.find(item => item.cartItemId === cartItemId)
@@ -45,6 +55,11 @@ export default function ProductDetailActions({ product }: { product: ProductItem
     : (product.image_url || '/assets/img/placeholder.jpeg')
 
   const handleAdd = () => {
+    if (productSoldOut) {
+      showToast("This piece is sold out.", "error")
+      return
+    }
+
     if (product.variants.length > 0 && !selectedVariant) {
       showToast("Please select a color first.", "error")
       return
@@ -90,6 +105,15 @@ export default function ProductDetailActions({ product }: { product: ProductItem
             </span>
           )}
         </div>
+        {productSoldOut ? (
+          <span className="text-xs font-bold uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1 rounded-full">
+            Sold Out
+          </span>
+        ) : (
+          <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
+            In Stock
+          </span>
+        )}
       </div>
 
       {/* Variant Selector */}
@@ -141,51 +165,72 @@ export default function ProductDetailActions({ product }: { product: ProductItem
           </div>
         )}
 
-        {/* Quantity Control Buttons Row */}
-        <div className="flex items-center gap-4">
-          <span className="text-[13px] uppercase tracking-widest font-bold text-neutral-800">Quantity</span>
-          {/* ✅ FIXED: Restyled layout frame wrapper to match minimalist boutique standards */}
-          <div className="flex items-center border border-neutral-200 bg-white rounded-xl p-1 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="p-2 hover:text-[#c5a880] text-neutral-500 transition-colors rounded-lg hover:bg-neutral-50"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <span className="px-4 font-bold text-neutral-900 text-sm w-8 text-center select-none">{quantity}</span>
-            <button
-              type="button"
-              onClick={() => setQuantity(q => q + 1)}
-              className="p-2 hover:text-[#c5a880] text-neutral-500 transition-colors rounded-lg hover:bg-neutral-50"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
+        {productSoldOut ? (
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-6 text-center">
+            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose-600">
+              <span className="w-2 h-2 rounded-full bg-rose-600" />
+              Sold Out
+            </span>
+            <p className="mt-2.5 text-sm text-neutral-500 leading-relaxed">
+              This piece is currently sold out. Keep an eye on our new drops or
+              reach out to us on WhatsApp to be notified when it's back.
+            </p>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Quantity Control Buttons Row */}
+            <div className="flex items-center gap-4">
+              <span className="text-[13px] uppercase tracking-widest font-bold text-neutral-800">Quantity</span>
+              {/* ✅ FIXED: Restyled layout frame wrapper to match minimalist boutique standards */}
+              <div className="flex items-center border border-neutral-200 bg-white rounded-xl p-1 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  className="p-2 hover:text-[#c5a880] text-neutral-500 transition-colors rounded-lg hover:bg-neutral-50"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-4 font-bold text-neutral-900 text-sm w-8 text-center select-none">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.min(q + 1, maxQty))}
+                  disabled={quantity >= maxQty}
+                  className="p-2 hover:text-[#c5a880] text-neutral-500 transition-colors rounded-lg hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {maxQty < 999 && (
+                <span className="text-[11px] text-neutral-400">
+                  {maxQty} in stock
+                </span>
+              )}
+            </div>
 
-        {/* Checkout CTA Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-          {/* ✅ FIXED: Swapped green block for solid, high-contrast premium charcoal black boutique button style */}
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={product.variants.length > 0 && !selectedVariant}
-            className="w-full py-3.5 px-6 bg-neutral-950 text-white font-semibold rounded-xl hover:bg-neutral-800 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm text-sm"
-          >
-            <ShoppingBag className="w-4 h-4" /> Add to Cart
-          </button>
+            {/* Checkout CTA Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+              {/* ✅ FIXED: Swapped green block for solid, high-contrast premium charcoal black boutique button style */}
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={product.variants.length > 0 && !selectedVariant}
+                className="w-full py-3.5 px-6 bg-neutral-950 text-white font-semibold rounded-xl hover:bg-neutral-800 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm text-sm"
+              >
+                <ShoppingBag className="w-4 h-4" /> Add to Cart
+              </button>
 
-          {/* ✅ FIXED: Swapped green outline button for an upscale minimalist gold outline theme accent button */}
-          <button
-            type="button"
-            onClick={handleBuyNow}
-            disabled={product.variants.length > 0 && !selectedVariant}
-            className="w-full py-3.5 px-6 border-2 border-[#c5a880] text-[#c5a880] font-semibold rounded-xl bg-white hover:bg-[#FBF7F0] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
-          >
-            <CreditCard className="w-4 h-4" /> Buy Now
-          </button>
-        </div>
+              {/* ✅ FIXED: Swapped green outline button for an upscale minimalist gold outline theme accent button */}
+              <button
+                type="button"
+                onClick={handleBuyNow}
+                disabled={product.variants.length > 0 && !selectedVariant}
+                className="w-full py-3.5 px-6 border-2 border-[#c5a880] text-[#c5a880] font-semibold rounded-xl bg-white hover:bg-[#FBF7F0] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+              >
+                <CreditCard className="w-4 h-4" /> Buy Now
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

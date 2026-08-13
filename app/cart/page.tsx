@@ -71,14 +71,16 @@ export default function CartPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Cart Items List */}
               <div className="lg:col-span-8 space-y-4">
-                {cart.map((item) => (
+                {cart.map((item) => {
+                  const soldOut = typeof (item as any).stock === 'number' && (item as any).stock <= 0
+                  return (
                   <div key={item.cartItemId} className="flex gap-4 p-4 rounded-2xl border border-neutral-100 bg-white shadow-sm hover:shadow-md transition-all relative">
                     <div className="relative w-20 h-24 rounded-xl overflow-hidden shrink-0 border border-neutral-100">
                       <Image
                         src={item.image_url || '/assets/img/placeholder.jpeg'}
                         alt={item.name}
                         fill
-                        className="object-cover"
+                        className={`object-cover ${soldOut ? 'grayscale opacity-60' : ''}`}
                       />
                     </div>
 
@@ -102,6 +104,11 @@ export default function CartPage() {
                         <p className="text-[11px] text-neutral-400 uppercase tracking-wider font-semibold mt-1">
                           {item.category_name || 'Jewelry'} {item.variant_name && `• Color: ${item.variant_name}`}
                         </p>
+                        {soldOut && (
+                          <span className="inline-block mt-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md">
+                            Out of Stock
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between mt-4">
@@ -116,7 +123,8 @@ export default function CartPage() {
                           <span className="px-2 text-xs font-semibold text-neutral-850 min-w-[20px] text-center">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
-                            className="px-2.5 py-1 text-neutral-500 hover:text-neutral-900 transition-colors text-sm"
+                            disabled={soldOut}
+                            className="px-2.5 py-1 text-neutral-500 hover:text-neutral-900 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <i className="fa-solid fa-plus text-xs"></i>
                           </button>
@@ -130,7 +138,7 @@ export default function CartPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
 
               {/* Order Summary */}

@@ -63,6 +63,8 @@ export interface Product {
   color_hex: string | null
   average_rating: number
   review_count: number
+  stock: number
+  available: boolean
   is_active: boolean
   is_featured: boolean
   seo_title: string | null
@@ -135,19 +137,23 @@ export interface CartItem {
 // ─── Orders ──────────────────────────────────────────────────
 export interface Order {
   id: string
-  order_number: string
-  user_id: string
-  address_id: string | null
+  user_id: string | null
+  customer_name: string | null
+  customer_email: string | null
+  customer_phone: string | null
+  shipping_address: string | null
+  items: unknown[] | null
   subtotal: number
-  shipping_cost: number
-  total_amount: number
-  payment_status: PaymentStatus
-  order_status: OrderStatus
+  shipping_fee: number
+  discount: number
+  coupon_code: string | null
+  total: number
   payment_method: string | null
-  razorpay_order_id: string | null
-  razorpay_payment_id: string | null
+  payment_status: PaymentStatus
+  status: string
+  notes: string | null
   created_at: string
-  updated_at: string
+  razorpay_payment_id: string | null
 }
 
 // ─── Order Items ─────────────────────────────────────────────

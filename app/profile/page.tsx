@@ -2,6 +2,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import ProfileManager from './_components/ProfileManager'
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
 export const metadata = {
   title: 'My Profile | The Boujee Bazaar',
@@ -11,6 +12,10 @@ export const metadata = {
 export default async function CustomerProfilePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login?redirect=/profile')
+  }
   
   let adminProfile = null
   let orders = []

@@ -27,6 +27,7 @@ export default function SimilarProducts({ similarProducts = [] }: { similarProdu
         {similarProducts.slice(0, 5).map((p, idx) => {
           const catName = p.category_name || "Jewelry"
           const itemStrikePrice = p.originalPrice || p.oldPrice
+          const soldOut = (p.available !== undefined && p.available === false) || (typeof p.stock === 'number' && p.stock <= 0)
 
           return (
             <div 
@@ -43,13 +44,17 @@ export default function SimilarProducts({ similarProducts = [] }: { similarProdu
                   alt={p.name}
                   fill
                   sizes="(max-width: 768px) 50vw, 240px"
-                  className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                  className={`object-cover transition-transform duration-700 group-hover:scale-[1.03] ${soldOut ? 'grayscale opacity-60' : ''}`}
                 />
-                {p.badge && (
+                {soldOut ? (
+                  <span className="absolute top-3 left-3 bg-rose-600 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
+                    Sold Out
+                  </span>
+                ) : p.badge ? (
                   <span className="absolute top-3 left-3 bg-neutral-900 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
                     {p.badge}
                   </span>
-                )}
+                ) : null}
                 <span className="absolute bottom-3 right-3 bg-white/90 text-neutral-900 backdrop-blur-xs text-[10px] font-bold tracking-wider uppercase px-2 py-1 rounded shadow-xs">
                   {catName}
                 </span>
@@ -77,22 +82,28 @@ export default function SimilarProducts({ similarProducts = [] }: { similarProdu
 
                 {/* Secure "Buy Now" button launcher */}
                 <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      addToCart({ id: p.id, name: p.name, price: p.price, image_url: p.image_url, category_name: catName });
-                      if (typeof window !== 'undefined') {
-                        const currentItem = { id: p.id, cartItemId: p.id + '-init', name: p.name, price: p.price, image: p.image_url, quantity: 1, category_name: catName };
-                        const encodedData = encodeURIComponent(JSON.stringify([currentItem]));
-                        document.cookie = `boujee-cart-token=${encodedData}; path=/; max-age=604800;`;
-                        localStorage.setItem('cart', JSON.stringify([currentItem]));
-                        window.location.href = '/checkout';
-                      }
-                    }}
-                    className="w-full text-center rounded-xl bg-neutral-900 text-white text-[11px] font-semibold py-2 hover:bg-neutral-800 transition-colors"
-                  >
-                    Buy now
-                  </button>
+                  {soldOut ? (
+                    <div className="w-full text-center rounded-xl bg-neutral-100 text-neutral-400 text-[11px] font-semibold py-2 cursor-not-allowed">
+                      Sold Out
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addToCart({ id: p.id, name: p.name, price: p.price, image_url: p.image_url, category_name: catName });
+                        if (typeof window !== 'undefined') {
+                          const currentItem = { id: p.id, cartItemId: p.id + '-init', name: p.name, price: p.price, image: p.image_url, quantity: 1, category_name: catName };
+                          const encodedData = encodeURIComponent(JSON.stringify([currentItem]));
+                          document.cookie = `boujee-cart-token=${encodedData}; path=/; max-age=604800;`;
+                          localStorage.setItem('cart', JSON.stringify([currentItem]));
+                          window.location.href = '/checkout';
+                        }
+                      }}
+                      className="w-full text-center rounded-xl bg-neutral-900 text-white text-[11px] font-semibold py-2 hover:bg-neutral-800 transition-colors"
+                    >
+                      Buy now
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
