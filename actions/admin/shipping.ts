@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export type ShippingActionResult = {
@@ -9,7 +9,7 @@ export type ShippingActionResult = {
 }
 
 export async function getShippingSettings() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data, error } = await supabase
     .from('settings')
@@ -50,7 +50,7 @@ export async function updateShippingSettings(
   enableCod: boolean = true,
   enableOnline: boolean = true
 ): Promise<ShippingActionResult> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Update shipping config inside settings table
   const { error } = await supabase

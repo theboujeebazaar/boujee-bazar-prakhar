@@ -237,7 +237,7 @@ export default function ProfileManager({ adminProfile, orders = [] }: { adminPro
             {orders.map((order) => (
               <div key={order.id} className="border border-cream-line rounded-xl p-4 flex justify-between items-center bg-cream/20">
                 <div>
-                  <div className="font-bold text-ink">Order #{order.order_number}</div>
+                  <div className="font-bold text-ink">Order #{order.order_number || order.id}</div>
                   <div className="text-xs text-ink/60 mt-1">
                     {(() => {
                       const d = new Date(order.created_at)
@@ -249,9 +249,9 @@ export default function ProfileManager({ adminProfile, orders = [] }: { adminPro
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-emerald">₹{order.total_amount}</div>
+                  <div className="font-semibold text-emerald">₹{order.total ?? order.total_amount ?? 0}</div>
                   <div className="text-xs uppercase tracking-wider font-bold mt-1 text-ink/60 bg-cream border border-cream-line px-2 py-0.5 rounded-md inline-block">
-                    {order.order_status}
+                    {order.status ?? order.order_status}
                   </div>
                 </div>
               </div>

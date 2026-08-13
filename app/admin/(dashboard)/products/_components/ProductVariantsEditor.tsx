@@ -23,7 +23,7 @@ type BulkVariantForm = {
   is_active: boolean
 }
 
-const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const STANDARD_COLORS = ['Gold', 'Rose Gold', 'Silver', 'Black', 'White', 'Champagne']
 
 export function ProductVariantsEditor({
   productId,
@@ -50,10 +50,10 @@ export function ProductVariantsEditor({
 
   const initializeBulkForm = () => {
     const existingNames = variants.map(v => v.variant_name.toUpperCase())
-    const initialSizes = STANDARD_SIZES.filter(s => !existingNames.includes(s))
+    const initialColors = STANDARD_COLORS.filter(c => !existingNames.includes(c.toUpperCase()))
     
-    // If all standard sizes exist, just provide one empty row
-    if (initialSizes.length === 0) {
+    // If all standard colors exist, just provide one empty row
+    if (initialColors.length === 0) {
       setBulkData([{
         id: crypto.randomUUID(),
         variant_name: '',
@@ -63,9 +63,9 @@ export function ProductVariantsEditor({
         is_active: true
       }])
     } else {
-      setBulkData(initialSizes.map(size => ({
+      setBulkData(initialColors.map(color => ({
         id: crypto.randomUUID(),
-        variant_name: size,
+        variant_name: color,
         price: '',
         original_price: '',
         stock_quantity: '0',
@@ -76,7 +76,7 @@ export function ProductVariantsEditor({
     setEditingId(null)
   }
 
-  const addCustomSizeRow = () => {
+  const addCustomColorRow = () => {
     setBulkData(prev => [...prev, {
       id: crypto.randomUUID(),
       variant_name: '',
@@ -121,7 +121,7 @@ export function ProductVariantsEditor({
   }
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this size option?')) {
+    if (confirm('Are you sure you want to delete this color option?')) {
       startTransition(async () => {
         await deleteProductVariant(id, productId)
       })
@@ -154,7 +154,7 @@ export function ProductVariantsEditor({
     const validRows = bulkData.filter(r => r.variant_name.trim() !== '' && r.price.trim() !== '')
     
     if (validRows.length === 0) {
-      alert("Please fill in at least one size option with a name and price.")
+      alert("Please fill in at least one color option with a name and price.")
       return
     }
 
@@ -175,7 +175,7 @@ export function ProductVariantsEditor({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900">Size Options</h3>
+        <h3 className="text-lg font-medium text-gray-900">Color Options</h3>
         {!isAdding && !editingId && (
           <button
             type="button"
@@ -184,7 +184,7 @@ export function ProductVariantsEditor({
             className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-sm"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add Size Options
+            Add Color Options
           </button>
         )}
       </div>
@@ -192,10 +192,10 @@ export function ProductVariantsEditor({
       {/* SINGLE EDIT FORM */}
       {editingId && (
         <form onSubmit={handleSingleSubmit} className="bg-gray-50 p-5 rounded-xl border border-gray-200 shadow-sm">
-          <h4 className="text-sm font-bold text-gray-800 mb-4 pb-2 border-b border-gray-200">Edit Size Option</h4>
+          <h4 className="text-sm font-bold text-gray-800 mb-4 pb-2 border-b border-gray-200">Edit Color Option</h4>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-5">
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Size Name</label>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Color Name</label>
               <input
                 required
                 type="text"
@@ -203,7 +203,7 @@ export function ProductVariantsEditor({
                 value={formData.variant_name}
                 onChange={(e) => setFormData({ ...formData, variant_name: e.target.value })}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-                placeholder="e.g. M, L, XL"
+                placeholder="e.g. Gold, Rose Gold, Silver"
               />
             </div>
             <div>
@@ -279,23 +279,23 @@ export function ProductVariantsEditor({
         <form onSubmit={handleBulkSubmit} className="bg-gray-50 p-5 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
             <div>
-              <h4 className="text-sm font-bold text-gray-800">Quick Add Size Options</h4>
-              <p className="text-xs text-gray-500 mt-1">Fill in the prices and stock for the standard sizes, or add custom ones.</p>
+              <h4 className="text-sm font-bold text-gray-800">Quick Add Color Options</h4>
+              <p className="text-xs text-gray-500 mt-1">Fill in the prices and stock for the standard colors, or add custom ones.</p>
             </div>
             <button
               type="button"
-              onClick={addCustomSizeRow}
+              onClick={addCustomColorRow}
               className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 transition-colors"
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" />
-              Add Custom Size
+              Add Custom Color
             </button>
           </div>
 
           <div className="space-y-3">
             {/* Headers */}
             <div className="hidden md:grid grid-cols-12 gap-3 px-2">
-              <div className="col-span-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Size Name</div>
+              <div className="col-span-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Color Name</div>
               <div className="col-span-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Price (₹)*</div>
               <div className="col-span-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Old Price</div>
               <div className="col-span-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock*</div>
@@ -307,13 +307,13 @@ export function ProductVariantsEditor({
             {bulkData.map((row) => (
               <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-white p-3 md:p-2 rounded-lg border border-gray-200 shadow-sm items-center">
                 <div className="md:col-span-3">
-                  <label className="block text-xs font-medium text-gray-500 md:hidden mb-1">Size Name</label>
+                  <label className="block text-xs font-medium text-gray-500 md:hidden mb-1">Color Name</label>
                   <input
                     type="text"
                     value={row.variant_name}
                     onChange={(e) => updateBulkRow(row.id, 'variant_name', e.target.value)}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border font-medium text-gray-900"
-                    placeholder="e.g. XL"
+                    placeholder="e.g. Rose Gold"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -366,7 +366,7 @@ export function ProductVariantsEditor({
                     type="button"
                     onClick={() => removeBulkRow(row.id)}
                     className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
-                    title="Remove Size"
+                    title="Remove Color"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -390,7 +390,7 @@ export function ProductVariantsEditor({
               className="inline-flex items-center px-6 py-2 text-sm font-bold text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save All Sizes
+              Save All Colors
             </button>
           </div>
         </form>
@@ -401,7 +401,7 @@ export function ProductVariantsEditor({
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
-                <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Size</th>
+                <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Color</th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Price</th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Stock</th>
                 <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
@@ -442,7 +442,7 @@ export function ProductVariantsEditor({
                         onClick={() => handleEdit(variant)}
                         disabled={isPending}
                         className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-1.5 rounded hover:bg-indigo-100 transition-colors"
-                        title="Edit Size"
+                        title="Edit Color"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -450,7 +450,7 @@ export function ProductVariantsEditor({
                         onClick={() => handleDelete(variant.id)}
                         disabled={isPending}
                         className="text-red-600 hover:text-red-900 bg-red-50 p-1.5 rounded hover:bg-red-100 transition-colors"
-                        title="Delete Size"
+                        title="Delete Color"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -463,8 +463,8 @@ export function ProductVariantsEditor({
         </div>
       ) : (
         <div className="text-center py-16 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
-          <p className="text-sm font-semibold text-gray-600">No size options added yet.</p>
-          <p className="text-sm text-gray-500 mt-2">Add sizes like "S", "M", "L" to this product.</p>
+          <p className="text-sm font-semibold text-gray-600">No color options added yet.</p>
+          <p className="text-sm text-gray-500 mt-2">Add colors like "Gold", "Rose Gold", "Silver" to this product.</p>
         </div>
       )}
     </div>

@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import FloatingWhatsApp from '@/components/FloatingWhatsApp'
-import { createClient } from '@/lib/supabase/client'
+import { trackOrder } from '@/actions/orders'
 
 export default function TrackOrderPage() {
   const [orderNumber, setOrderNumber] = useState('')
@@ -25,14 +25,9 @@ export default function TrackOrderPage() {
     setTrackingInfo(null)
 
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('order_number', orderNumber.trim())
-        .single()
+      const res = await trackOrder(orderNumber.trim(), email.trim() || undefined)
 
-      if (error || !data) {
+      if (!res.found) {
         // Fallback for demo: if order exists in local storage or is mock
         if (orderNumber.trim().toUpperCase().startsWith('BB-')) {
           setTrackingInfo({
@@ -47,7 +42,14 @@ export default function TrackOrderPage() {
           setErrorMsg('Order not found. Please double-check your order number (e.g. BB-1002).')
         }
       } else {
-        setTrackingInfo(data)
+        setTrackingInfo({
+          order_number: res.order_number,
+          order_status: res.status,
+          payment_status: res.payment_status,
+          total_amount: res.total,
+          created_at: res.created_at,
+          mock: false
+        })
       }
     } catch (err) {
       console.error(err)

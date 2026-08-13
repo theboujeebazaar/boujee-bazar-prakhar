@@ -92,7 +92,7 @@ export default function Categories({ categories = [] }: { categories?: Category[
       <div className="collection-grid">
         {activeCategories.map((category) => (
           <Link
-            href={`/shop?category=${encodeURIComponent(category.name)}`}
+            href={`/shop?category=${encodeURIComponent(category.slug || category.name)}`}
             className="collection-item"
             key={category.id}
           >
@@ -102,7 +102,7 @@ export default function Categories({ categories = [] }: { categories?: Category[
                 alt={category.name}
               />
             </div>
-            <span>{category.name}</span>
+            <span>{category.name.trim()}</span>
           </Link>
         ))}
       </div>

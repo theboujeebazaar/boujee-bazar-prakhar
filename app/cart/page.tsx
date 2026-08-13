@@ -100,7 +100,7 @@ export default function CartPage() {
                           </button>
                         </div>
                         <p className="text-[11px] text-neutral-400 uppercase tracking-wider font-semibold mt-1">
-                          {item.category_name || 'Jewelry'} {item.variant_name && `• Size: ${item.variant_name}`}
+                          {item.category_name || 'Jewelry'} {item.variant_name && `• Color: ${item.variant_name}`}
                         </p>
                       </div>
 

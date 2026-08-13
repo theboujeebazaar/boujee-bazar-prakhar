@@ -123,6 +123,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import ShopGrid from './_components/ShopGrid'
 import { createClient } from "@/lib/supabase/server";
+import { normalizeCategoryKey } from '@/lib/category'
 import Image from 'next/image'
 
 export const metadata = {
@@ -141,7 +142,7 @@ export default async function ShopPage({
   const resolvedSearchParams = typeof searchParams?.then === 'function' ? await searchParams : searchParams;
   const searchQuery = resolvedSearchParams?.search || '';
   const featuredOnly = resolvedSearchParams?.featured === 'true';
-  const selectedCategory = resolvedSearchParams?.category || '';
+  const selectedCategory = normalizeCategoryKey(resolvedSearchParams?.category || '');
 
   // 1. QUERY LIVE CATALOG MATCHING YOUR EXACT JEWELRY COLUMNS
   let productsQuery = supabase
@@ -185,7 +186,7 @@ export default async function ShopPage({
     id: p.id,
     name: p.name,
     slug: p.id, // Bypasses missing slug strings with standard reference ids
-    category_id: p.category?.trim().toLowerCase() || '',
+    category_id: normalizeCategoryKey(p.category) || '',
     category_name: p.category || 'Jewelry',
     subcategory: p.subcategory?.trim().toLowerCase() || '',
     image_url: p.image || '/assets/img/placeholder.jpeg',
@@ -202,8 +203,8 @@ export default async function ShopPage({
 
   // Normalize categories parameters to keep child state tracking from breaking
   const categories = (categoriesData || []).map((c: any) => ({
-    id: c.name.trim().toLowerCase(),
-    name: c.name,
+    id: normalizeCategoryKey(c.slug || c.name),
+    name: c.name?.trim() || '',
     image: c.image || '/assets/img/placeholder.jpeg',
     description: c.description || ''
   }));
@@ -244,7 +245,7 @@ export default async function ShopPage({
           <ShopGrid 
             initialProducts={products} 
             categories={categories} 
-            selectedCategory={selectedCategory.trim().toLowerCase()} 
+            selectedCategory={selectedCategory} 
           />
         </div>
       </main>

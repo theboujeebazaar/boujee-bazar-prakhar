@@ -17,7 +17,7 @@
 // }
 
 // export async function getHeroSlides() {
-//   const supabase = await createClient()
+//   const supabase = createAdminClient()
   
 //   const { data } = await supabase
 //     .from('hero_slides')
@@ -29,7 +29,7 @@
 // }
 
 // export async function createHeroSlide(imageUrl: string, position: 'left' | 'right' = 'right') {
-//   const supabase = await createClient()
+//   const supabase = createAdminClient()
 //   const isAdmin = await checkAdminAuth(supabase)
 //   if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
@@ -61,7 +61,7 @@
 // }
 
 // export async function deleteHeroSlide(id: string) {
-//   const supabase = await createClient()
+//   const supabase = createAdminClient()
 //   const isAdmin = await checkAdminAuth(supabase)
 //   if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
@@ -78,7 +78,7 @@
 // }
 
 // export async function toggleHeroSlideStatus(id: string, isActive: boolean) {
-//   const supabase = await createClient()
+//   const supabase = createAdminClient()
 //   const isAdmin = await checkAdminAuth(supabase)
 //   if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
@@ -95,7 +95,7 @@
 // }
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 
@@ -122,7 +122,7 @@ async function checkAdminAuth(supabase: any) {
  * 💡 UPDATED: Fetches your hero images directly out of the homepage_config row
  */
 export async function getHeroSlides() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   
   const { data, error } = await supabase
     .from('homepage_config')
@@ -139,7 +139,7 @@ export async function getHeroSlides() {
  * string or object right into your JSONB column array.
  */
 export async function createHeroSlide(imageUrl: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const isAdmin = await checkAdminAuth(supabase)
   if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
@@ -184,7 +184,7 @@ export async function createHeroSlide(imageUrl: string) {
  * list array directly from your client component.
  */
 export async function updateHeroSlidesArray(updatedImagesArray: any[]) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const isAdmin = await checkAdminAuth(supabase)
   if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
@@ -207,7 +207,7 @@ export async function updateHeroSlidesArray(updatedImagesArray: any[]) {
  * 💡 UPDATED: Removes a specific element out of the JSONB array by matching its URL path
  */
 export async function deleteHeroSlide(urlToRemove: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const isAdmin = await checkAdminAuth(supabase)
   if (!isAdmin) return { success: false, error: 'Unauthorized' }
 

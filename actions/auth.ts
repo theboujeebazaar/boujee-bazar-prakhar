@@ -654,14 +654,34 @@ export async function register(
         console.error("Supabase user insert fault error block:", userInsertError.message)
         return { error: `User Table Insert Failed: ${userInsertError.message}` }
       }
+
+      // Also create a profiles row so login/profile/checkout prefill can read it
+      // (the app reads customer data from `profiles`).
+      const { error: profileInsertError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: newUser.user.id,
+          email: email.trim().toLowerCase(),
+          full_name: fullName,
+          phone: phone || null,
+          role: 'customer',
+          is_active: true,
+        })
+
+      if (profileInsertError) {
+        console.error("Supabase profile insert fault error block:", profileInsertError.message)
+      }
     }
   } catch (e: any) {
     console.error("Critical registration table exception catch:", e)
     return { error: 'Failed compiling customer profile metadata index.' }
   }
 
-  // Log user in automatically post creation to launch session context cookies
-  const { data: logData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+  // Log user in automatically post creation to launch session context cookies.
+  // Use the cookie-aware server client so a real Supabase session (sb-*-auth-token)
+  // is stored — this gives the new user the `authenticated` role under RLS.
+  const supabase = await createClient()
+  const { data: logData, error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password,
   })

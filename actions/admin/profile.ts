@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export type ProfileActionResult = {
@@ -9,7 +9,7 @@ export type ProfileActionResult = {
 }
 
 export async function getAdminProfile() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch admin profile
   const { data: admin } = await supabase
@@ -29,7 +29,7 @@ export async function getAdminProfile() {
 export async function updateAdminProfile(
   formData: FormData
 ): Promise<ProfileActionResult> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const fullName = formData.get('fullName') as string
   const email = formData.get('email') as string

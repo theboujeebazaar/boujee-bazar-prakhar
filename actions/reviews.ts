@@ -39,8 +39,8 @@ export async function submitReview(
         product_id: productId,
         user_id: user.id,
         rating,
-        comment: comment ? comment.trim() : null,
-        is_approved: false // Reviews must be approved by admin
+        review: comment ? comment.trim() : null,
+        approved: false // Reviews must be approved by admin
       })
 
     if (insertError) {

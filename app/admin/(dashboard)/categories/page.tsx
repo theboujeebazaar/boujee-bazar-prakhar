@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { Plus, FolderTree } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 }
 
 export default async function CategoriesPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: categories } = await supabase
     .from('categories')

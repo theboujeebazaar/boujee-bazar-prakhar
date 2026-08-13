@@ -46,12 +46,12 @@ export default function ProductDetailActions({ product }: { product: ProductItem
 
   const handleAdd = () => {
     if (product.variants.length > 0 && !selectedVariant) {
-      showToast("Please select a size/variant first.", "error")
+      showToast("Please select a color first.", "error")
       return
     }
 
     if (selectedVariant && selectedVariant.stock_quantity < quantity) {
-      showToast("Not enough stock available for this variant.", "error")
+      showToast("Not enough stock available for this color.", "error")
       return
     }
 
@@ -96,7 +96,7 @@ export default function ProductDetailActions({ product }: { product: ProductItem
       {product.variants.length > 0 && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-[13px] uppercase tracking-widest font-bold text-neutral-800">Select Size / Variant</span>
+            <span className="text-[13px] uppercase tracking-widest font-bold text-neutral-800">Select Color</span>
             {selectedVariant && (
               /* ✅ FIXED: Swapped color to elegant neutral text layouts */
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">

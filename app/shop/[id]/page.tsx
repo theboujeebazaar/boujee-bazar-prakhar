@@ -358,6 +358,23 @@ export default async function ProductDetailPage({ params }: { params: any }) {
 
   if (!productData || !productData.available) notFound();
 
+  // 1b. Fetch active product_variants rows (the admin "Color Options" editor saves here).
+  //     These take precedence over the product's colors/sizes columns.
+  const { data: variantRows } = await supabase
+    .from('product_variants')
+    .select('id, variant_name, price, original_price, stock_quantity, is_active')
+    .eq('product_id', id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+
+  const dbVariants = (variantRows || []).map((v: any) => ({
+    id: v.id,
+    variant_name: v.variant_name,
+    price: Number(v.price),
+    original_price: v.original_price != null ? Number(v.original_price) : null,
+    stock_quantity: Number(v.stock_quantity) || 0,
+  }))
+
   // Compile image list array cleanly
   let images: string[] = []
   if (productData.images) {
@@ -370,22 +387,44 @@ export default async function ProductDetailPage({ params }: { params: any }) {
   if (images.length === 0 && productData.image) images = [productData.image]
   if (images.length === 0) images = ['/assets/img/placeholder.jpeg']
 
-  // Compile variants list configuration
+  // Compile color variant options: saved product_variants win, then colors, then sizes, then Standard
   let variants: any[] = []
-  if (productData.sizes) {
-    const sizeList = typeof productData.sizes === 'string' 
-      ? productData.sizes.split(',') 
-      : Array.isArray(productData.sizes) ? productData.sizes : []
-    variants = sizeList.map((size: string) => ({
-      id: `${productData.id}-${size.trim()}`,
-      variant_name: size.trim(),
-      price: productData.price,
-      original_price: productData.originalPrice || null,
-      stock_quantity: 20
-    }))
-  }
-  if (variants.length === 0) {
-    variants = [{ id: `${productData.id}-standard`, variant_name: 'Standard', price: productData.price, original_price: productData.originalPrice || null, stock_quantity: 20 }]
+  if (dbVariants.length > 0) {
+    variants = dbVariants
+  } else {
+    const colorList = productData.colors
+      ? (Array.isArray(productData.colors)
+          ? productData.colors
+          : typeof productData.colors === 'string'
+            ? productData.colors.split(',').map((c: string) => c.trim()).filter(Boolean)
+            : [])
+      : []
+    if (colorList.length > 0) {
+      variants = colorList.map((color: string) => ({
+        id: `${productData.id}-${color.trim()}`,
+        variant_name: color.trim(),
+        price: productData.price,
+        original_price: productData.originalPrice || null,
+        stock_quantity: 20
+      }))
+    }
+
+    // Fallback to the legacy sizes column if no colors are configured
+    if (variants.length === 0 && productData.sizes) {
+      const sizeList = typeof productData.sizes === 'string' 
+        ? productData.sizes.split(',') 
+        : Array.isArray(productData.sizes) ? productData.sizes : []
+      variants = sizeList.map((size: string) => ({
+        id: `${productData.id}-${size.trim()}`,
+        variant_name: size.trim(),
+        price: productData.price,
+        original_price: productData.originalPrice || null,
+        stock_quantity: 20
+      }))
+    }
+    if (variants.length === 0) {
+      variants = [{ id: `${productData.id}-standard`, variant_name: 'Standard', price: productData.price, original_price: productData.originalPrice || null, stock_quantity: 20 }]
+    }
   }
 
   // =========================================================

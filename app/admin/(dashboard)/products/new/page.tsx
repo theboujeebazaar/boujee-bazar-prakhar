@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
 import ProductForm from '../_components/ProductForm'
 
@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 export default async function NewProductPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [{ data: categories }, { data: otherProducts }] = await Promise.all([
     supabase.from('categories').select('*').order('name'),

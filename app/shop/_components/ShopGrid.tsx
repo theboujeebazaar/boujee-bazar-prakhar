@@ -8,6 +8,7 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useToast } from '@/context/ToastContext'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { normalizeCategoryKey } from '@/lib/category'
 
 type Product = {
   id: string
@@ -37,7 +38,7 @@ type ShopGridProps = {
 
 export default function ShopGrid({ initialProducts, categories, selectedCategory }: ShopGridProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    selectedCategory ? [selectedCategory.trim().toLowerCase()] : []
+    selectedCategory ? [normalizeCategoryKey(selectedCategory)] : []
   )
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const { addToCart } = useCart()
@@ -57,12 +58,12 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
     
     // Initialize with categories from DB
     categories.forEach(c => {
-      map[c.id.toLowerCase()] = { name: c.name, subcategories: new Set() }
+      map[normalizeCategoryKey(c.id)] = { name: c.name, subcategories: new Set() }
     })
     
     // Populate subcategories from products
     initialProducts.forEach(p => {
-      const catId = p.category_id?.trim().toLowerCase()
+      const catId = normalizeCategoryKey(p.category_id)
       const subcat = p.subcategory?.trim()
       if (catId) {
         if (!map[catId]) {
@@ -78,9 +79,9 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
 
   useEffect(() => {
     if (selectedCategory) {
-      setSelectedCategories([selectedCategory.trim().toLowerCase()])
+      setSelectedCategories([normalizeCategoryKey(selectedCategory)])
       // Auto-expand the selected category
-      setExpandedCategories(prev => Array.from(new Set([...prev, selectedCategory.trim().toLowerCase()])))
+      setExpandedCategories(prev => Array.from(new Set([...prev, normalizeCategoryKey(selectedCategory)])))
     } else {
       setSelectedCategories([])
     }
@@ -92,14 +93,14 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
   }, [selectedCategories, filterParam])
 
   const toggleCategory = (id: string) => {
-    const targetId = id.trim().toLowerCase()
+    const targetId = normalizeCategoryKey(id)
     setSelectedCategories(prev => 
       prev.includes(targetId) ? prev.filter(c => c !== targetId) : [...prev, targetId]
     )
   }
 
   const toggleAccordion = (id: string) => {
-    const targetId = id.trim().toLowerCase()
+    const targetId = normalizeCategoryKey(id)
     setExpandedCategories(prev => 
       prev.includes(targetId) ? prev.filter(c => c !== targetId) : [...prev, targetId]
     )
@@ -107,8 +108,8 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
 
   // Filter products by category, subcategory, type, and max price threshold safely
   const filteredProducts = initialProducts.filter(p => {
-    const itemCatId = p.category_id?.trim().toLowerCase()
-    const itemSubcat = p.subcategory?.trim().toLowerCase()
+    const itemCatId = normalizeCategoryKey(p.category_id)
+    const itemSubcat = normalizeCategoryKey(p.subcategory)
 
     // 1. Category / Subcategory Matching
     if (selectedCategories.length > 0) {
@@ -215,7 +216,7 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
                 {hasSubcategories && isExpanded && (
                   <div className="pl-8 pt-1 pb-2 space-y-2 border-l-2 border-neutral-100 ml-2.5 mt-1 animate-in slide-in-from-top-2 fade-in duration-200">
                     {Array.from(catData.subcategories).map(subcat => {
-                      const subcatId = subcat.toLowerCase()
+                      const subcatId = normalizeCategoryKey(subcat)
                       const isSubcatChecked = selectedCategories.includes(subcatId)
                       return (
                         <label key={subcat} className="flex items-center gap-3 cursor-pointer group select-none py-1">

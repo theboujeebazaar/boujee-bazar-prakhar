@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -23,7 +23,7 @@ export async function createCategory(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const name = formData.get('name') as string
   const description = formData.get('description') as string
@@ -60,7 +60,7 @@ export async function updateCategory(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const id = formData.get('id') as string
   const name = formData.get('name') as string
@@ -97,7 +97,7 @@ export async function updateCategory(
 }
 
 export async function deleteCategory(id: string): Promise<ActionResult> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { error } = await supabase.from('categories').delete().eq('id', id)
 
@@ -113,7 +113,7 @@ export async function toggleCategoryStatus(
   id: string,
   isActive: boolean
 ): Promise<ActionResult> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { error } = await supabase
     .from('categories')
