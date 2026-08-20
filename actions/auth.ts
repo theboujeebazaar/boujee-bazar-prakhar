@@ -514,7 +514,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 export type AuthResult = {
   error?: string
@@ -712,3 +712,331 @@ export async function register(
 // ❌ COMMENTED OUT OBSOLETE OTP SENDER & VERIFICATION SCHEMAS NATIVELY
 // export async function sendEmailOtp(...) { ... }
 // export async function verifyEmailOtp(...) { ... }
+
+/**
+ * Resolves a Supabase Auth user id for an email address, checking every place
+ * an account could exist (profiles/users rows can be out of sync with each
+ * other for legacy accounts — auth.users is the real source of truth).
+ */
+async function resolveUserIdByEmail(
+  supabaseAdmin: ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>,
+  email: string
+): Promise<string | null> {
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+  if (profile?.id) return profile.id
+
+  const { data: userRow } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+  if (userRow?.id) return userRow.id
+
+  try {
+    const { data: userList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const authUser = (userList?.users as any[])?.find(
+      (u) => u.email?.toLowerCase() === email
+    )
+    if (authUser?.id) return authUser.id
+  } catch (e) {
+    console.warn('resolveUserIdByEmail: could not check Supabase Auth users list:', e)
+  }
+
+  return null
+}
+
+/**
+ * 4. FORGOT PASSWORD: Generates a reset token and emails a reset link via Brevo
+ */
+export async function requestPasswordReset(
+  _prevState: AuthResult,
+  formData: FormData
+): Promise<AuthResult> {
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+
+  if (!email) {
+    return { error: 'Email is required' }
+  }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const supabaseAdmin = createAdminClient()
+
+  const userId = await resolveUserIdByEmail(supabaseAdmin, email)
+
+  if (!userId) {
+    return { error: 'No account found with this email. Please create an account first.' }
+  }
+
+  const crypto = await import('crypto')
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString()
+
+  // Clear any previous tokens for this email, then insert the fresh one
+  await supabaseAdmin.from('password_reset_tokens').delete().eq('email', email)
+  const { error: insertError } = await supabaseAdmin
+    .from('password_reset_tokens')
+    .insert({ token, email, expires_at: expiresAt })
+
+  if (insertError) {
+    console.error('Password reset token insert error:', insertError.message)
+    return { error: 'Failed to start password reset. Please try again.' }
+  }
+
+  const headersList = await headers()
+  const host = headersList.get('host') || 'theboujeebazaar.in'
+  const protocol = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https'
+  const siteUrl = `${protocol}://${host}`
+  const resetLink = `${siteUrl}/reset-password?token=${token}`
+
+  const { sendBrevoEmail, resetPasswordEmailHtml } = await import('@/lib/brevo')
+  const { error: emailError } = await sendBrevoEmail({
+    to: email,
+    subject: 'Reset your The Boujee Bazaar password',
+    html: resetPasswordEmailHtml(resetLink),
+  })
+
+  if (emailError) {
+    return { error: emailError }
+  }
+
+  return { success: true }
+}
+
+/**
+ * 5. RESET PASSWORD: Validates the emailed token and sets a new password
+ */
+export async function resetPassword(
+  _prevState: AuthResult,
+  formData: FormData
+): Promise<AuthResult> {
+  const token = formData.get('token') as string
+  const password = formData.get('password') as string
+
+  if (!token || !password) {
+    return { error: 'Reset link is invalid. Please request a new one.' }
+  }
+
+  if (password.length < 6) {
+    return { error: 'Password must be at least 6 characters' }
+  }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const supabaseAdmin = createAdminClient()
+
+  const { data: resetRecord } = await supabaseAdmin
+    .from('password_reset_tokens')
+    .select('*')
+    .eq('token', token)
+    .maybeSingle()
+
+  if (!resetRecord) {
+    return { error: 'This reset link is invalid or has already been used.' }
+  }
+
+  if (new Date(resetRecord.expires_at) < new Date()) {
+    await supabaseAdmin.from('password_reset_tokens').delete().eq('token', token)
+    return { error: 'This reset link has expired. Please request a new one.' }
+  }
+
+  const userId = await resolveUserIdByEmail(supabaseAdmin, resetRecord.email)
+
+  if (!userId) {
+    await supabaseAdmin.from('password_reset_tokens').delete().eq('token', token)
+    return { error: 'No account found for this reset link.' }
+  }
+
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+    userId,
+    { password }
+  )
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  // Keep the legacy `users.password` column in sync (best-effort; not the auth source of truth)
+  try {
+    await supabaseAdmin.from('users').update({ password }).eq('id', userId)
+  } catch (e) {
+    // ignore — table/column may not exist for all accounts
+  }
+
+  await supabaseAdmin.from('password_reset_tokens').delete().eq('token', token)
+
+  return { success: true }
+}
+
+/**
+ * 6. SIGNUP STEP 1: Validates the email is free and emails a 6-digit verification code.
+ * The password never touches the server at this step — it stays in the browser
+ * and is only sent (together with the OTP) to verifySignupOtp below.
+ */
+export async function requestSignupOtp(
+  fullName: string,
+  email: string,
+  phone: string
+): Promise<AuthResult> {
+  email = email?.trim().toLowerCase()
+
+  if (!fullName || !email) {
+    return { error: 'Full name and email are required' }
+  }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const supabaseAdmin = createAdminClient()
+
+  // Catching an existing account here (before sending an OTP) avoids the
+  // confusing "already exists" error showing up later at the final
+  // Verify & Create Account step.
+  const existingUserId = await resolveUserIdByEmail(supabaseAdmin, email)
+  if (existingUserId) {
+    return { error: 'An account with this email already exists' }
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString()
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+
+  const { error: upsertError } = await supabaseAdmin
+    .from('signup_otps')
+    .upsert({ email, otp, full_name: fullName, phone: phone || null, expires_at: expiresAt })
+
+  if (upsertError) {
+    console.error('Signup OTP upsert error:', upsertError.message)
+    return { error: 'Failed to send verification code. Please try again.' }
+  }
+
+  const { sendBrevoEmail, signupOtpEmailHtml } = await import('@/lib/brevo')
+  const { error: emailError } = await sendBrevoEmail({
+    to: email,
+    subject: 'Your The Boujee Bazaar Verification Code',
+    html: signupOtpEmailHtml(otp),
+  })
+
+  if (emailError) {
+    return { error: emailError }
+  }
+
+  return { success: true }
+}
+
+/**
+ * 7. SIGNUP STEP 2: Verifies the OTP, then creates + logs in the account
+ */
+export async function verifySignupOtp(
+  fullName: string,
+  email: string,
+  phone: string,
+  password: string,
+  otp: string,
+  redirectTo?: string
+): Promise<AuthResult> {
+  email = email?.trim().toLowerCase()
+
+  if (!fullName || !email || !password || !otp) {
+    return { error: 'Missing required fields' }
+  }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const supabaseAdmin = createAdminClient()
+
+  const { data: otpRecord } = await supabaseAdmin
+    .from('signup_otps')
+    .select('*')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (!otpRecord) {
+    return { error: 'No verification code was requested for this email.' }
+  }
+
+  if (otpRecord.otp !== otp) {
+    return { error: 'Invalid verification code.' }
+  }
+
+  if (new Date(otpRecord.expires_at) < new Date()) {
+    await supabaseAdmin.from('signup_otps').delete().eq('email', email)
+    return { error: 'This verification code has expired. Please request a new one.' }
+  }
+
+  await supabaseAdmin.from('signup_otps').delete().eq('email', email)
+
+  const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: fullName,
+      phone: phone || '',
+      role: 'customer',
+    },
+  })
+
+  if (createError) {
+    if (createError.message.includes('already been registered')) {
+      return { error: 'An account with this email already exists' }
+    }
+    return { error: createError.message }
+  }
+
+  if (newUser?.user) {
+    const { error: userInsertError } = await supabaseAdmin.from('users').insert({
+      id: newUser.user.id,
+      email,
+      full_name: fullName,
+      password,
+      is_admin: false,
+    })
+
+    if (userInsertError) {
+      console.error('Signup users insert error:', userInsertError.message)
+      return { error: `Account setup failed: ${userInsertError.message}` }
+    }
+
+    const { error: profileInsertError } = await supabaseAdmin.from('profiles').insert({
+      id: newUser.user.id,
+      email,
+      full_name: fullName,
+      phone: phone || null,
+      role: 'customer',
+      is_active: true,
+    })
+
+    if (profileInsertError) {
+      console.error('Signup profiles insert error:', profileInsertError.message)
+    }
+  }
+
+  const supabase = await createClient()
+  const { data: logData, error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (signInError || !logData?.user) {
+    return { error: 'Account created but failed to log in automatically.' }
+  }
+
+  const cookieStore = await cookies()
+  cookieStore.set(
+    'boujee-user-session',
+    JSON.stringify({
+      id: logData.user.id,
+      email: logData.user.email,
+      full_name: fullName,
+      role: 'customer',
+    }),
+    {
+      path: '/',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 30 * 24 * 60 * 60,
+    }
+  )
+
+  revalidatePath('/', 'layout')
+  redirect(redirectTo && redirectTo.startsWith('/') ? redirectTo : '/')
+}

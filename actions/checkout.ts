@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getShippingSettings } from '@/actions/admin/shipping'
 import { validateCoupon } from '@/actions/admin/coupons'
+import { sendOrderConfirmationEmail } from '@/lib/brevo'
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
 
@@ -210,6 +211,23 @@ export async function createOrder(
   cookieStore.delete('boujee-cart-token')
   cookieStore.delete('cart')
 
+  try {
+    await sendOrderConfirmationEmail({
+      id: order_number,
+      customer_name: orderRecordPayload.customer_name,
+      customer_email: orderRecordPayload.customer_email,
+      items: validatedCartItems,
+      subtotal,
+      shipping_fee: shipping_cost + cod_cost,
+      discount: couponDiscount + online_discount_amount,
+      total: total_amount,
+      payment_method: 'COD',
+      shipping_address: orderRecordPayload.shipping_address,
+    })
+  } catch (e) {
+    console.warn('Failed to send COD order confirmation email:', e)
+  }
+
   revalidatePath('/cart')
   revalidatePath('/checkout')
   revalidatePath('/admin/orders')
@@ -278,7 +296,7 @@ async function settlePaidOrder(
     .update(updateData)
     .eq('id', orderId)
     .eq('payment_status', 'pending')
-    .select('items')
+    .select('items, customer_name, customer_email, subtotal, shipping_fee, discount, total, payment_method, shipping_address')
 
   if (updateError) {
     console.error("Failed adjusting payment confirmation flags on orders table:", updateError.message)
@@ -289,7 +307,8 @@ async function settlePaidOrder(
     return false
   }
 
-  const orderItems = updatedOrders[0]?.items || []
+  const settledOrder = updatedOrders[0]
+  const orderItems = settledOrder?.items || []
   for (const item of orderItems) {
     if (!item?.id) continue
     const { data: product } = await supabaseAdmin
@@ -304,6 +323,23 @@ async function settlePaidOrder(
       const newStock = Math.max(0, currentStock - orderedQty)
       await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id).gte('stock', orderedQty)
     }
+  }
+
+  try {
+    await sendOrderConfirmationEmail({
+      id: orderId,
+      customer_name: settledOrder.customer_name,
+      customer_email: settledOrder.customer_email,
+      items: orderItems,
+      subtotal: settledOrder.subtotal,
+      shipping_fee: settledOrder.shipping_fee,
+      discount: settledOrder.discount,
+      total: settledOrder.total,
+      payment_method: settledOrder.payment_method,
+      shipping_address: settledOrder.shipping_address,
+    })
+  } catch (e) {
+    console.warn('Failed to send Razorpay order confirmation email:', e)
   }
 
   return true

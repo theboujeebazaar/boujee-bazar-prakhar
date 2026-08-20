@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendOrderConfirmationEmail } from '@/lib/brevo'
 
 export async function POST(req: Request) {
   try {
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
         .update(updateData)
         .eq('id', orderId)
         .eq('payment_status', 'pending')
-        .select('items')
+        .select('items, customer_name, customer_email, subtotal, shipping_fee, discount, total, payment_method, shipping_address')
 
       if (updateErr) {
         console.error('[Razorpay Webhook Error]: DB update failed while settling order:', updateErr.message)
@@ -78,7 +79,8 @@ export async function POST(req: Request) {
 
       if (!updatedOrders || updatedOrders.length === 0) return
 
-      const orderItems = updatedOrders[0]?.items || []
+      const settledOrder = updatedOrders[0]
+      const orderItems = settledOrder?.items || []
       for (const item of orderItems) {
         if (!item?.id) continue
         const { data: product } = await supabaseAdmin
@@ -93,6 +95,23 @@ export async function POST(req: Request) {
           const newStock = Math.max(0, currentStock - orderedQty)
           await supabaseAdmin.from('products').update({ stock: newStock }).eq('id', item.id).gte('stock', orderedQty)
         }
+      }
+
+      try {
+        await sendOrderConfirmationEmail({
+          id: orderId,
+          customer_name: settledOrder.customer_name,
+          customer_email: settledOrder.customer_email,
+          items: orderItems,
+          subtotal: settledOrder.subtotal,
+          shipping_fee: settledOrder.shipping_fee,
+          discount: settledOrder.discount,
+          total: settledOrder.total,
+          payment_method: settledOrder.payment_method,
+          shipping_address: settledOrder.shipping_address,
+        })
+      } catch (e) {
+        console.warn('[Razorpay Webhook]: Failed to send order confirmation email:', e)
       }
     }
 
