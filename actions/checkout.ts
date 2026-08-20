@@ -28,7 +28,7 @@ export async function createOrder(
   couponCode?: string
 ) {
   const supabaseAdmin = createAdminClient()
-  
+
   let userId = null
   try {
     const cookieStore = await cookies()
@@ -119,6 +119,14 @@ export async function createOrder(
     customer_email: addressData.email || '',
     customer_phone: addressData.phone || '',
     shipping_address: `${addressData.street}, ${addressData.city}, ${addressData.state} - ${addressData.zipCode}`,
+    // Structured address fields (kept alongside the combined `shipping_address`
+    // string above) — Shiprocket's order API needs city/state/pincode as
+    // separate fields, not a single freeform address line.
+    shipping_street: addressData.street || '',
+    shipping_city: addressData.city || '',
+    shipping_state: addressData.state || '',
+    shipping_pincode: addressData.zipCode || '',
+    shipping_country: 'India',
     items: validatedCartItems,
     subtotal: subtotal,
     shipping_fee: shipping_cost,
@@ -231,12 +239,12 @@ export async function createOrder(
   revalidatePath('/cart')
   revalidatePath('/checkout')
   revalidatePath('/admin/orders')
-  
-  return { 
-    success: true, 
-    isRazorpay: false, 
-    order_number: order_number, 
-    orderId: order_number 
+
+  return {
+    success: true,
+    isRazorpay: false,
+    order_number: order_number,
+    orderId: order_number
   }
 }
 

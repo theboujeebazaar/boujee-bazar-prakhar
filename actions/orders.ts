@@ -9,6 +9,13 @@ export type TrackOrderResult = {
   created_at?: string
   total?: number
   found: boolean
+  // Shiprocket shipment info — populated once the order has been shipped
+  // (via the admin "Ship via Shiprocket" action) and, for awb/courier/
+  // status, kept up to date by the Shiprocket webhook as the parcel moves.
+  shiprocket_status?: string | null
+  awb_code?: string | null
+  courier_name?: string | null
+  tracking_url?: string | null
 }
 
 export async function trackOrder(
@@ -24,7 +31,7 @@ export async function trackOrder(
   // Only non-sensitive fields are returned; customer PII is never exposed.
   const { data } = await supabase
     .from('orders')
-    .select('id, status, payment_status, created_at, total, customer_email')
+    .select('id, status, payment_status, created_at, total, customer_email, shiprocket_status, awb_code, courier_name')
     .eq('id', number)
     .maybeSingle()
 
@@ -42,6 +49,10 @@ export async function trackOrder(
     created_at: data.created_at,
     total: Number(data.total || 0),
     found: true,
+    shiprocket_status: data.shiprocket_status || null,
+    awb_code: data.awb_code || null,
+    courier_name: data.courier_name || null,
+    tracking_url: data.awb_code ? `https://shiprocket.co/tracking/${data.awb_code}` : null,
   }
 }
 

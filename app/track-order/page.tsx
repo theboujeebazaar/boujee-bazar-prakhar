@@ -44,6 +44,10 @@ export default function TrackOrderPage() {
           payment_status: res.payment_status,
           total_amount: res.total,
           created_at: res.created_at,
+          awb_code: res.awb_code,
+          courier_name: res.courier_name,
+          tracking_url: res.tracking_url,
+          shiprocket_status: res.shiprocket_status,
         })
       }
     } catch (err) {
@@ -66,7 +70,7 @@ export default function TrackOrderPage() {
   return (
     <main className="overflow-x-hidden pt-[72px] md:pt-[84px] bg-white min-h-screen flex flex-col font-body">
       <Header />
-      
+
       <div className="flex-1 max-w-3xl mx-auto w-full px-5 py-16 md:py-24">
         <div className="text-center max-w-xl mx-auto mb-12">
           <div className="eyebrow justify-center inline-flex items-center gap-2 text-[#c5a880] uppercase tracking-widest text-xs font-semibold">
@@ -87,9 +91,9 @@ export default function TrackOrderPage() {
           <form onSubmit={handleTrack} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Order Number</label>
-              <input 
-                type="text" 
-                placeholder="e.g. BB-1024" 
+              <input
+                type="text"
+                placeholder="e.g. BB-1024"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
                 className="w-full px-4 py-3.5 rounded-xl border border-neutral-200 focus:border-neutral-900 outline-none text-sm font-medium transition-all"
@@ -98,17 +102,17 @@ export default function TrackOrderPage() {
             </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Email Address (Optional)</label>
-              <input 
-                type="email" 
-                placeholder="email@example.com" 
+              <input
+                type="email"
+                placeholder="email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3.5 rounded-xl border border-neutral-200 focus:border-neutral-900 outline-none text-sm font-medium transition-all"
               />
             </div>
             {errorMsg && <p className="text-red-500 text-xs font-medium">{errorMsg}</p>}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
             >
@@ -133,8 +137,8 @@ export default function TrackOrderPage() {
             {/* Tracking Status Steps */}
             <div className="relative flex justify-between items-center">
               <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-neutral-100 -translate-y-1/2 -z-10" />
-              <div 
-                className="absolute top-1/2 left-0 h-0.5 bg-[#c5a880] -translate-y-1/2 -z-10 transition-all duration-500" 
+              <div
+                className="absolute top-1/2 left-0 h-0.5 bg-[#c5a880] -translate-y-1/2 -z-10 transition-all duration-500"
                 style={{ width: `${(activeStep / 3) * 100}%` }}
               />
 
@@ -142,10 +146,10 @@ export default function TrackOrderPage() {
                 const isActive = idx <= activeStep
                 return (
                   <div key={step} className="flex flex-col items-center">
-                    <div 
+                    <div
                       className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                        isActive 
-                          ? 'bg-[#c5a880] border-[#c5a880] text-white shadow-sm' 
+                        isActive
+                          ? 'bg-[#c5a880] border-[#c5a880] text-white shadow-sm'
                           : 'bg-white border-neutral-200 text-neutral-400'
                       }`}
                     >
@@ -159,10 +163,32 @@ export default function TrackOrderPage() {
               })}
             </div>
 
-            <div className="bg-neutral-50 rounded-2xl p-4 text-xs text-neutral-500 space-y-2">
-              <p><strong>Payment Status:</strong> {trackingInfo.payment_status.toUpperCase()}</p>
-              <p><strong>Estimated Delivery:</strong> 3-5 business days from dispatch.</p>
-            </div>
+            {/* Courier / AWB tracking, once the order has shipped */}
+            {trackingInfo.awb_code ? (
+              <div className="bg-[#c5a880]/5 border border-[#c5a880]/20 rounded-2xl p-4 text-xs text-neutral-600 space-y-2">
+                <p><strong>Courier:</strong> {trackingInfo.courier_name || 'Assigned'}</p>
+                <p><strong>AWB / Tracking No.:</strong> {trackingInfo.awb_code}</p>
+                {trackingInfo.shiprocket_status && (
+                  <p><strong>Latest Status:</strong> {trackingInfo.shiprocket_status}</p>
+                )}
+                <a
+                  href={trackingInfo.tracking_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center w-full mt-2 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition-colors"
+                >
+                  Track Live Shipment
+                </a>
+              </div>
+            ) : (
+              <div className="bg-neutral-50 rounded-2xl p-4 text-xs text-neutral-500 space-y-2">
+                <p><strong>Payment Status:</strong> {trackingInfo.payment_status.toUpperCase()}</p>
+                <p><strong>Estimated Delivery:</strong> 3-5 business days from dispatch.</p>
+                {['shipped', 'processing'].includes((trackingInfo.order_status || '').toLowerCase()) && (
+                  <p>Your parcel is being prepared for dispatch — a tracking number will appear here once it's picked up by the courier.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
