@@ -117,6 +117,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
@@ -195,17 +196,46 @@ export async function updateCustomerFullProfile(data: {
   //    Errors here are surfaced (not swallowed) — a silent failure previously meant
   //    "Saved!" showed in the UI while nothing actually persisted to the database.
   if (user) {
-    const { error: profileError } = await supabase
+    const supabaseAdmin = createAdminClient()
+    const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
       .from('profiles')
-      .update({
-        full_name: data.fullName,
-        phone: data.phone || null
-      })
+      .select('id')
       .eq('id', user.id)
+      .maybeSingle()
 
-    if (profileError) {
-      console.error('Failed to update profiles table:', profileError.message)
-      return { success: false, error: 'Failed to save profile: ' + profileError.message }
+    if (profileCheckError) {
+      console.error('Failed to query profiles table:', profileCheckError.message)
+      return { success: false, error: 'Failed to save profile: ' + profileCheckError.message }
+    }
+
+    if (!existingProfile) {
+      const { error: profileInsertError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: data.fullName,
+          phone: data.phone || null,
+          role: 'customer'
+        })
+
+      if (profileInsertError) {
+        console.error('Failed to create missing profile:', profileInsertError.message)
+        return { success: false, error: 'Failed to save profile: ' + profileInsertError.message }
+      }
+    } else {
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          full_name: data.fullName,
+          phone: data.phone || null
+        })
+        .eq('id', user.id)
+
+      if (profileError) {
+        console.error('Failed to update profiles table:', profileError.message)
+        return { success: false, error: 'Failed to save profile: ' + profileError.message }
+      }
     }
 
     // Create or update addresses

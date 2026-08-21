@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getShippingSettings } from '@/actions/admin/shipping'
 import { validateCoupon } from '@/actions/admin/coupons'
 import { sendOrderConfirmationEmail } from '@/lib/brevo'
+import { updateCustomerFullProfile } from './profile'
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
 
@@ -431,5 +432,13 @@ export async function processCheckout(
 ) {
   const cookieStore = await cookies()
   cookieStore.set('boujee-customer-profile-token', encodeURIComponent(JSON.stringify(profile)), { path: '/', maxAge: 60 * 60 * 24 * 7 })
+  
+  // Save/Update the address in profiles and addresses table automatically
+  try {
+    await updateCustomerFullProfile(profile)
+  } catch (err) {
+    console.warn("Failed to automatically update customer profile during checkout:", err)
+  }
+
   return await createOrder(profile, paymentMethod, items, couponCode)
 }

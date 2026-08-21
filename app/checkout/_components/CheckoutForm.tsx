@@ -914,21 +914,23 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
           if (data?.user) {
             Promise.all([
               supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle(),
-              supabase.from('addresses').select('*').eq('user_id', data.user.id).order('is_default', { ascending: false }).limit(1).maybeSingle()
-            ]).then(([profRes, addrRes]) => {
+              supabase.from('addresses').select('*').eq('user_id', data.user.id).order('is_default', { ascending: false }).limit(1).maybeSingle(),
+              supabase.from('orders').select('*').eq('user_id', data.user.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+            ]).then(([profRes, addrRes, orderRes]) => {
               const profileData = profRes.data
               const addressData = addrRes.data
+              const lastOrder = orderRes.data
               
               setProfile(prev => ({
                 ...prev,
-                fullName: profileData?.full_name || prev.fullName,
+                fullName: profileData?.full_name || lastOrder?.customer_name || prev.fullName,
                 email: data.user.email || prev.email,
-                phone: addressData?.phone || profileData?.phone || prev.phone,
+                phone: addressData?.phone || profileData?.phone || lastOrder?.customer_phone || prev.phone,
                 alternatePhone: addressData?.alternate_phone || prev.alternatePhone,
-                street: addressData?.address_line_1 || prev.street,
-                city: addressData?.city || prev.city,
-                state: addressData?.state || prev.state,
-                zipCode: addressData?.postal_code || prev.zipCode,
+                street: addressData?.address_line_1 || lastOrder?.shipping_street || prev.street,
+                city: addressData?.city || lastOrder?.shipping_city || prev.city,
+                state: addressData?.state || lastOrder?.shipping_state || prev.state,
+                zipCode: addressData?.postal_code || lastOrder?.shipping_pincode || prev.zipCode,
               }))
             })
           }
