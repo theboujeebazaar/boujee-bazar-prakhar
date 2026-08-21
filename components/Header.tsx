@@ -932,9 +932,6 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
                 <a href="/profile" onClick={() => setOpen(false)} className="text-sm font-semibold text-[#c5a880] py-2.5 flex items-center justify-between">
                   <span>Manage Profile</span> <User className="w-4 h-4" />
                 </a>
-                <a href="/track-order" onClick={() => setOpen(false)} className="text-sm font-semibold text-[#c5a880] py-2.5 flex items-center justify-between">
-                  <span>Track My Order</span> <Package className="w-4 h-4" />
-                </a>
               </div>
             )}
 
