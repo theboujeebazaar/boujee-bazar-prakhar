@@ -191,28 +191,38 @@ export async function updateCustomerFullProfile(data: {
     sameSite: 'lax'
   })
 
-  // 2. If a real database user session exists, attempt to update tables inside a safe try/catch block
+  // 2. If a real database user session exists, update the profiles/addresses tables.
+  //    Errors here are surfaced (not swallowed) — a silent failure previously meant
+  //    "Saved!" showed in the UI while nothing actually persisted to the database.
   if (user) {
-    try {
-      // Update profiles
-      await supabase
-        .from('profiles')
-        .update({
-          full_name: data.fullName,
-          phone: data.phone || null
-        })
-        .eq('id', user.id)
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        full_name: data.fullName,
+        phone: data.phone || null
+      })
+      .eq('id', user.id)
 
-      // Create or update addresses
-      const { data: existingAddress } = await supabase
-        .from('addresses')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle()
+    if (profileError) {
+      console.error('Failed to update profiles table:', profileError.message)
+      return { success: false, error: 'Failed to save profile: ' + profileError.message }
+    }
 
-      if (existingAddress) {
-        await supabase
+    // Create or update addresses
+    const { data: existingAddress, error: lookupError } = await supabase
+      .from('addresses')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (lookupError) {
+      console.error('Failed to look up existing address:', lookupError.message)
+      return { success: false, error: 'Failed to save address: ' + lookupError.message }
+    }
+
+    const addressWrite = existingAddress
+      ? supabase
           .from('addresses')
           .update({
             full_name: data.fullName,
@@ -224,8 +234,7 @@ export async function updateCustomerFullProfile(data: {
             postal_code: data.zipCode
           })
           .eq('id', existingAddress.id)
-      } else {
-        await supabase
+      : supabase
           .from('addresses')
           .insert({
             user_id: user.id,
@@ -239,9 +248,12 @@ export async function updateCustomerFullProfile(data: {
             country: 'India',
             is_default: true
           })
-      }
-    } catch (databaseError) {
-      console.warn("Relational tables skipped. Bypassed safely using cookie profile streams.")
+
+    const { error: addressError } = await addressWrite
+
+    if (addressError) {
+      console.error('Failed to save address:', addressError.message)
+      return { success: false, error: 'Failed to save address: ' + addressError.message }
     }
   }
 

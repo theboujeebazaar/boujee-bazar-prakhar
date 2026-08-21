@@ -101,8 +101,20 @@ export default function CartPage() {
                             <i className="fa-regular fa-trash-can text-sm"></i>
                           </button>
                         </div>
-                        <p className="text-[11px] text-neutral-400 uppercase tracking-wider font-semibold mt-1">
-                          {item.category_name || 'Jewelry'} {item.variant_name && `• Color: ${item.variant_name}`}
+                        <p className="text-[11px] text-neutral-400 uppercase tracking-wider font-semibold mt-1 flex items-center gap-1">
+                          {item.category_name || 'Jewelry'}
+                          {item.variant_name && (
+                            <span className="inline-flex items-center gap-1">
+                              • Color:
+                              {item.variant_color_hex && (
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                                  style={{ backgroundColor: item.variant_color_hex }}
+                                />
+                              )}
+                              {item.variant_name}
+                            </span>
+                          )}
                         </p>
                         {soldOut && (
                           <span className="inline-block mt-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md">

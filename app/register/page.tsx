@@ -23,7 +23,7 @@ export default async function RegisterPage({
         {/* Universal Store Navigation Bar */}
         <Header />
 
-        <main className="min-h-screen bg-stone-50 flex items-center justify-center pt-32 pb-20 px-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+        <main className="min-h-screen bg-stone-50 flex items-center justify-center pt-40 pb-20 px-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
           <div className="w-full max-w-md bg-white border border-stone-200/60 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
             
             {/* Jewelry Brand Typography Header Stack */}

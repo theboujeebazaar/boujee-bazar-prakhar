@@ -515,6 +515,16 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
   const pathname = usePathname();
   const [shipping, setShipping] = useState<any>(null);
 
+  const [jewelryCategories, setJewelryCategories] = useState<any[]>([
+    { id: "necklaces", name: "Necklaces & Pendants" },
+    { id: "earrings", name: "Earrings" },
+    { id: "rings", name: "Rings" },
+    { id: "bracelets", name: "Bracelets & Bangles" },
+    { id: "hair-accessories", name: "Hair Accessories" },
+    { id: "anklets", name: "Anklets" },
+    { id: "watches", name: "Watches" }
+  ]);
+
   useEffect(() => {
     async function loadHeaderData() {
       try {
@@ -525,6 +535,23 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
 
         setShipping(shippingData);
         setAnnouncement(announcementData);
+
+        const supabase = createClient();
+        if (supabase) {
+          const { data: catsData } = await supabase
+            .from('categories')
+            .select('id, name, slug')
+            .eq('is_active', true)
+            .order('name');
+          
+          if (catsData && catsData.length > 0) {
+            const formatted = catsData.map((c: any) => ({
+              id: c.slug || c.id,
+              name: c.name
+            }));
+            setJewelryCategories(formatted);
+          }
+        }
       } catch (err) {
         console.error(err);
       }
@@ -561,18 +588,20 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
 
   const checkUserSession = () => {
     const value = `; ${document.cookie}`;
-    const parts = value.split(`; boujee-user-session=`); // ✅ UPDATED: Re-mapped over to your jewelry brand tracking token keys
+    const parts = value.split(`; boujee-user-session=`);
     if (parts.length === 2) {
       const val = parts.pop()?.split(';').shift();
       if (val) {
         try {
           const session = JSON.parse(decodeURIComponent(val));
-          setUser({ 
-            id: session.id, 
-            email: session.email, 
-            user_metadata: { role: session.role, full_name: session.full_name } 
-          });
-          return;
+          if (session && session.id) {
+            setUser({ 
+              id: session.id, 
+              email: session.email, 
+              user_metadata: { role: session.role, full_name: session.full_name } 
+            });
+            return;
+          }
         } catch (e) {}
       }
     }
@@ -592,24 +621,31 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
         if (data?.user) setUser(data.user);
       }).catch(() => {});
     }
-    window.addEventListener('boujee-login-status-change', checkUserSession); // ✅ UPDATED: Sync layout changes natively
+    window.addEventListener('boujee-login-status-change', checkUserSession);
     return () => {
       window.removeEventListener('boujee-login-status-change', checkUserSession);
     };
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    if (open) {
+      document.body.style.overflow = "hidden";
+      document.body.style.height = "100vh";
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100vh";
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.height = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.height = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
+    };
   }, [open]);
-
-  const jewelryCategories = [
-    { id: "necklaces", name: "Necklaces & Pendants" },
-    { id: "earrings", name: "Earrings" },
-    { id: "rings", name: "Rings" },
-    { id: "bracelets", name: "Bracelets & Bangles" },
-    { id: "anklets", name: "Anklets" },
-    { id: "watches", name: "Watches" }
-  ];
 
   const isHome = pathname === '/';
 
@@ -784,6 +820,10 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
                   const supabase = createClient();
                   await supabase.auth.signOut();
                   localStorage.removeItem('boujee-customer-profile');
+                  document.cookie = "boujee-user-session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                  document.cookie = "boujee-admin-logged-in=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                  document.cookie = "mock-admin-logged-in=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                  document.cookie = "boujee-customer-profile-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                   setUser(null);
                   window.location.reload();
                 }}
@@ -826,10 +866,24 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
         </div>
 
         {/* Mobile slide-out drawer navigational panel menu */}
-        <div className={`lg:hidden fixed inset-x-0 top-[108px] bottom-0 bg-white z-50 border-t border-neutral-100 transition-all duration-300 ${
+        <div className={`lg:hidden fixed inset-x-0 bottom-0 bg-white z-50 border-t border-neutral-100 transition-all duration-300 flex flex-col ${
+          isAnnouncementActive
+            ? scrolled
+              ? "top-[72px]"
+              : "top-[108px]"
+            : "top-[72px]"
+        } ${
           open ? "block opacity-100 pointer-events-auto" : "hidden opacity-0 pointer-events-none"
         }`}>
-          <nav className="flex flex-col px-6 pt-4 gap-1 overflow-y-auto max-h-[calc(100vh-120px)]">
+          <style dangerouslySetInnerHTML={{__html: `
+            .no-scrollbar::-webkit-scrollbar {
+              display: none;
+            }
+          `}} />
+          <nav 
+            className="flex flex-col px-6 pt-4 pb-8 gap-1 overflow-y-auto flex-1 no-scrollbar"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
             {navLinks.map((link, i) => {
               if (link.label === "Shop") {
                 return (
@@ -891,6 +945,10 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
                     const supabase = createClient();
                     await supabase.auth.signOut();
                     localStorage.removeItem('boujee-customer-profile');
+                    document.cookie = "boujee-user-session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    document.cookie = "boujee-admin-logged-in=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    document.cookie = "mock-admin-logged-in=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    document.cookie = "boujee-customer-profile-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                     setUser(null);
                     setOpen(false);
                     window.location.reload();
@@ -904,9 +962,12 @@ export default function Header({ announcement: propAnnouncement }: HeaderProps =
                   Login / Register
                 </a>
               )}
-              <div className="text-center text-[11px] text-neutral-400 mt-2 space-y-0.5">
-                <p>{SITE.phone}</p>
-                <p>{SITE.email}</p>
+              <div className="text-center mt-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Contact Us</span>
+                <div className="text-[11px] text-neutral-400 space-y-0.5">
+                  <p>{SITE.phone}</p>
+                  <p>{SITE.email}</p>
+                </div>
               </div>
             </div>
           </nav>

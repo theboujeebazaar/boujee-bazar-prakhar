@@ -159,12 +159,12 @@ export default async function ShopPage({
       description,
       sizes,
       colors,
+      color_swatches,
       tag,
       available,
       stock,
       created_at
-    `)
-    .eq("available", true);
+    `);
 
   if (searchQuery) {
     productsQuery = productsQuery.ilike('name', `%${searchQuery}%`);
@@ -179,36 +179,83 @@ export default async function ShopPage({
   // 2. FETCH ACTIVE CATEGORIES CORRESPONDING TO YOUR REAL SCHEMA FIELDS
   const { data: categoriesData } = await supabase
     .from("categories")
-    .select("id, name, slug, image, description, sort_order")
+    .select("id, name, slug, image_url, description, sort_order")
     .order('sort_order', { ascending: true });
 
+  // 2b. Aggregate approved review ratings per product for the card badges below.
+  //     Averaging is done in JS rather than a Postgrest aggregate select so this
+  //     works regardless of the deployed Postgrest version.
+  const { data: reviewRatingRows } = await supabase
+    .from('reviews')
+    .select('product_id, rating')
+    .eq('approved', true)
+
+  const ratingsByProduct = (reviewRatingRows || []).reduce((acc: Record<string, { sum: number, count: number }>, r: any) => {
+    if (!r.product_id) return acc
+    if (!acc[r.product_id]) acc[r.product_id] = { sum: 0, count: 0 }
+    acc[r.product_id].sum += Number(r.rating) || 0
+    acc[r.product_id].count += 1
+    return acc
+  }, {})
+
   // 3. ✅ MAP DATA UNIFORMLY UNTO YOUR BRAND NEW JEWELRY SHAPES
-  const products = (productsData || []).map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    slug: p.id, // Bypasses missing slug strings with standard reference ids
-    category_id: normalizeCategoryKey(p.category) || '',
-    category_name: p.category || 'Jewelry',
-    subcategory: p.subcategory?.trim().toLowerCase() || '',
-    image_url: p.image || '/assets/img/placeholder.jpeg',
-    price: p.price || 0,
-    originalPrice: p.originalPrice || undefined,
-    badge: p.tag || undefined, // Populates 'tag' into product grid tags badges
-    rating: 5.0, // Fixed baseline aesthetic metric
-    stock: p.stock != null ? Number(p.stock) : undefined,
-    available: p.available ?? true,
-    colorCount: Array.isArray(p.colors) 
-  ? p.colors.length 
-  : p.colors && typeof p.colors === 'string'
-    ? p.colors.split(',').length
-    : 1, // Counts color strings split by commas dynamically
-  }));
+  const products = (productsData || []).map((p: any) => {
+    const ratingAgg = ratingsByProduct[p.id]
+
+    // Resolve storefront default color and swatches list
+    let colorsList: { name: string; hex: string }[] = []
+    let defaultColorName = undefined
+    let defaultColorHex = undefined
+    if (p.color_swatches) {
+      try {
+        const parsed = JSON.parse(p.color_swatches)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          colorsList = parsed
+          defaultColorName = parsed[0].name
+          defaultColorHex = parsed[0].hex
+        }
+      } catch (e) {}
+    }
+    if (colorsList.length === 0 && p.colors) {
+      const colorList = Array.isArray(p.colors)
+        ? p.colors
+        : typeof p.colors === 'string'
+          ? p.colors.split(',').map((c: string) => c.trim()).filter(Boolean)
+          : []
+      colorsList = colorList.map(name => ({ name, hex: '#c5a880' }))
+      if (colorsList.length > 0) {
+        defaultColorName = colorsList[0].name
+        defaultColorHex = colorsList[0].hex
+      }
+    }
+
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.id, // Bypasses missing slug strings with standard reference ids
+      category_id: normalizeCategoryKey(p.category) || '',
+      category_name: p.category || 'Jewelry',
+      subcategory: p.subcategory?.trim().toLowerCase() || '',
+      image_url: p.image || '/assets/img/placeholder.jpeg',
+      price: p.price || 0,
+      originalPrice: p.originalPrice || undefined,
+      badge: p.tag || undefined, // Populates 'tag' into product grid tags badges
+      rating: ratingAgg ? ratingAgg.sum / ratingAgg.count : 0,
+      reviewCount: ratingAgg?.count || 0,
+      stock: p.stock != null ? Number(p.stock) : undefined,
+      available: p.available ?? true,
+      colorCount: colorsList.length,
+      colorsList,
+      defaultColorName,
+      defaultColorHex
+    }
+  });
 
   // Normalize categories parameters to keep child state tracking from breaking
   const categories = (categoriesData || []).map((c: any) => ({
     id: normalizeCategoryKey(c.slug || c.name),
     name: c.name?.trim() || '',
-    image: c.image || '/assets/img/placeholder.jpeg',
+    image: c.image_url || '/assets/img/placeholder.jpeg',
     description: c.description || ''
   }));
 

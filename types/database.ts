@@ -61,6 +61,7 @@ export interface Product {
   color_group_id: string | null
   color_name: string | null
   color_hex: string | null
+  color_swatches: string | null
   average_rating: number
   review_count: number
   stock: number
@@ -92,6 +93,7 @@ export interface ProductImage {
   product_id: string
   image_url: string
   sort_order: number
+  color_name?: string | null
   created_at: string
 }
 

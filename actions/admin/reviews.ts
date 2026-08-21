@@ -45,8 +45,15 @@ export async function approveReview(
     // Removed the manual product table updates for 'average_rating' and 'review_count'
     // since those columns are not present in your Page 1 products table schema.
 
+    const { data: reviewRow } = await supabaseAdmin
+      .from('reviews')
+      .select('product_id')
+      .eq('id', reviewId)
+      .maybeSingle()
+
     revalidatePath('/admin/reviews')
     revalidatePath('/shop')
+    if (reviewRow?.product_id) revalidatePath(`/shop/${reviewRow.product_id}`)
     return { success: true }
   } catch (err: any) {
     console.error('Unexpected error approving review:', err)

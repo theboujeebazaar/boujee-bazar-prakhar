@@ -146,7 +146,7 @@ export default function ProductCard({
               {name}
             </h3>
           </Link>
-          {colorCount && colorCount > 1 && (
+          {(colorCount ?? 0) > 1 && (
             <p className="mt-1 text-[11px] font-medium text-[#c5a880]">
               {colorCount} tones available
             </p>

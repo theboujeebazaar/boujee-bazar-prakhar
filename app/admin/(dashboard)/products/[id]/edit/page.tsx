@@ -19,17 +19,12 @@ export default async function EditProductPage({
   const { id } = await params
   const supabase = createAdminClient()
 
-  const [productRes, categoriesRes, otherProductsRes, infoRes, faqRes, variantsRes, imagesRes] = await Promise.all([
+  const [productRes, categoriesRes, infoRes, faqRes, variantsRes, imagesRes] = await Promise.all([
     supabase.from('products').select('*').eq('id', id).single(),
     supabase
       .from('categories')
       .select('*')
       // .eq('is_active', true)
-      .order('name'),
-    supabase
-      .from('products')
-      .select('id, name, color_group_id, color_name')
-      .neq('id', id)
       .order('name'),
     supabase
       .from('product_information')
@@ -69,7 +64,6 @@ export default async function EditProductPage({
       <ProductForm
         product={productRes.data}
         categories={categoriesRes.data || []}
-        otherProducts={otherProductsRes.data || []}
       />
 
       {/* Additional Info & FAQs only shown when editing */}
@@ -82,6 +76,7 @@ export default async function EditProductPage({
         <ProductVariantsEditor
           productId={id}
           variants={variantsRes.data || []}
+          colorSwatches={productRes.data.color_swatches}
         />
       </div>
 

@@ -1,157 +1,9 @@
-// 'use client'
-
-// import { useState, useTransition } from 'react'
-// import { CldUploadWidget } from 'next-cloudinary'
-// import { Plus, X, Star, Loader2 } from 'lucide-react'
-// import { addProductImage, deleteProductImage, setFeaturedImage } from '@/actions/products'
-// import Image from 'next/image'
-
-// type ProductImage = {
-//   id: string
-//   product_id: string
-//   image_url: string
-//   sort_order: number
-// }
-
-// type Product = {
-//   id: string
-//   featured_image_url: string | null
-// }
-
-// export function ProductImagesEditor({
-//   product,
-//   images,
-// }: {
-//   product: Product
-//   images: ProductImage[]
-// }) {
-//   const [isPending, startTransition] = useTransition()
-//   const [uploading, setUploading] = useState(false)
-
-//   const handleUploadSuccess = (result: any) => {
-//     setUploading(false)
-//     if (result.info && result.info.secure_url) {
-//       startTransition(async () => {
-//         await addProductImage(product.id, result.info.secure_url)
-//       })
-//     }
-//   }
-
-//   const handleDelete = (imageId: string) => {
-//     if (confirm('Are you sure you want to delete this image?')) {
-//       startTransition(async () => {
-//         await deleteProductImage(imageId, product.id)
-//       })
-//     }
-//   }
-
-//   const handleSetFeatured = (imageUrl: string) => {
-//     startTransition(async () => {
-//       await setFeaturedImage(product.id, imageUrl)
-//     })
-//   }
-
-//   return (
-//     <div className="space-y-6">
-//       <div className="flex items-center justify-between">
-//         <h3 className="text-lg font-medium text-gray-900">Product Images</h3>
-//         <CldUploadWidget
-//           signatureEndpoint="/api/cloudinary/sign"
-//           onSuccess={handleUploadSuccess}
-//           onOpen={() => setUploading(true)}
-//           options={{
-//             multiple: true,
-//             maxFiles: 5,
-//           }}
-//         >
-//           {({ open }) => {
-//             return (
-//               <button
-//                 type="button"
-//                 onClick={() => open()}
-//                 disabled={uploading || isPending}
-//                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-//               >
-//                 {uploading || isPending ? (
-//                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-//                 ) : (
-//                   <Plus className="w-4 h-4 mr-2" />
-//                 )}
-//                 Upload Image
-//               </button>
-//             )
-//           }}
-//         </CldUploadWidget>
-//       </div>
-
-//       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-//         {images.map((img) => {
-//           const isFeatured = product.featured_image_url === img.image_url
-//           return (
-//             <div
-//               key={img.id}
-//               className={`relative group aspect-square rounded-lg overflow-hidden border-2 ${
-//                 isFeatured ? 'border-indigo-600' : 'border-gray-200'
-//               }`}
-//             >
-//               <Image
-//                 src={img.image_url}
-//                 alt="Product image"
-//                 fill
-//                 className="object-cover"
-//               />
-
-//               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-//                 <div className="flex justify-end">
-//                   <button
-//                     type="button"
-//                     onClick={() => handleDelete(img.id)}
-//                     disabled={isPending}
-//                     className="p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-//                   >
-//                     <X className="w-4 h-4" />
-//                   </button>
-//                 </div>
-
-//                 <div className="flex justify-center mb-2">
-//                   {!isFeatured && (
-//                     <button
-//                       type="button"
-//                       onClick={() => handleSetFeatured(img.image_url)}
-//                       disabled={isPending}
-//                       className="px-3 py-1.5 text-xs font-medium text-gray-900 bg-white rounded-full shadow-sm hover:bg-gray-50 transition-colors"
-//                     >
-//                       Set as Featured
-//                     </button>
-//                   )}
-//                   {isFeatured && (
-//                     <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-full">
-//                       <Star className="w-3 h-3 mr-1 fill-current" />
-//                       Featured
-//                     </span>
-//                   )}
-//                 </div>
-//               </div>
-//             </div>
-//           )
-//         })}
-
-//         {images.length === 0 && (
-//           <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-//             <p className="text-sm text-gray-500">No images uploaded yet</p>
-//             <p className="text-xs text-gray-400 mt-1">Click "Upload Image" to add some</p>
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   )
-// }
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { CldUploadWidget } from 'next-cloudinary'
 import { Plus, X, Star, Loader2 } from 'lucide-react'
-import { addProductImage, deleteProductImage, setFeaturedImage } from '@/actions/products'
+import { addProductImage, deleteProductImage, setFeaturedImage, updateProductImageColor } from '@/actions/products'
 import Image from 'next/image'
 
 export function ProductImagesEditor({
@@ -163,17 +15,44 @@ export function ProductImagesEditor({
 }) {
   const [isPending, startTransition] = useTransition()
   const [uploading, setUploading] = useState(false)
+  const [activeTab, setActiveTab] = useState<string>('All')
+
+  // Cloudinary's onSuccess callback can fire after the admin has switched tabs,
+  // so a ref (not just state) keeps the upload tagged to whichever color was active when it started.
+  const activeTabRef = useRef(activeTab)
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
 
   // Use your real database image fallback references
   const currentFeatured = product?.image || product?.featured_image_url
   const activeImages = images.length > 0 ? images : product?.images ? product.images.map((url: string, i: number) => ({ id: String(i), image_url: url })) : []
 
+  // Derive color tabs from product.color_swatches (the "Product Colors" chip list), JSON: [{name, hex}]
+  const productColors = (() => {
+    if (!product?.color_swatches) return []
+    try {
+      const parsed = JSON.parse(product.color_swatches) as { name: string; hex: string }[]
+      if (Array.isArray(parsed)) {
+        return parsed.map((c) => ({ name: c.name.trim(), hex: c.hex || '#c5a880' })).filter((c) => c.name)
+      }
+    } catch (e) { }
+    return []
+  })()
+
+  const displayedImages = activeImages.filter((img: any) => {
+    if (activeTab === 'All') return true
+    return img.color_name?.toLowerCase().trim() === activeTab.toLowerCase().trim()
+  })
+
   const handleUploadSuccess = (result: any) => {
     setUploading(false)
     if (result.info && result.info.secure_url) {
+      const currentTab = activeTabRef.current
+      const uploadColor = currentTab === 'All' ? null : currentTab
       startTransition(async () => {
         try {
-          await addProductImage(product.id, result.info.secure_url)
+          await addProductImage(product.id, result.info.secure_url, uploadColor)
         } catch (e) {
           console.error("Image uploaded to Cloudinary, database save bypassed.")
         }
@@ -209,60 +88,112 @@ export function ProductImagesEditor({
         </CldUploadWidget>
       </div>
 
+      {/* Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('All')}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === 'All' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
+            }`}
+        >
+          All ({activeImages.length})
+        </button>
+
+        {productColors.map((colorObj) => {
+          const count = activeImages.filter((img: any) => img.color_name?.toLowerCase().trim() === colorObj.name.toLowerCase().trim()).length
+          return (
+            <button
+              key={colorObj.name}
+              type="button"
+              onClick={() => setActiveTab(colorObj.name)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === colorObj.name ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
+                }`}
+            >
+              <span className="w-3 h-3 rounded-full border border-black/10 shrink-0 shadow-sm" style={{ backgroundColor: colorObj.hex }} />
+              <span>{colorObj.name} ({count})</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab !== 'All' && (
+        <div className="bg-stone-50 border border-stone-200 text-stone-700 text-xs rounded-xl p-3 font-medium">
+          Uploading images while on the <strong className="text-stone-900">{activeTab}</strong> tab will automatically set their color tag to <strong className="text-stone-900">{activeTab}</strong>.
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {activeImages.map((img: any, idx: number) => {
-          const isFeatured = currentFeatured === img.image_url || (!currentFeatured && idx === 0)
+        {displayedImages.map((img: any, idx: number) => {
+          const isFeatured = currentFeatured === img.image_url || (!currentFeatured && activeImages[0]?.id === img.id)
           return (
             <div
               key={img.id || idx}
-              className={`relative group aspect-square rounded-xl overflow-hidden border-2 ${isFeatured ? 'border-[#c5a880]' : 'border-stone-200'
+              className={`relative aspect-square rounded-xl overflow-hidden border-2 ${isFeatured ? 'border-[#c5a880]' : 'border-stone-200'
                 }`}
             >
               <Image src={img.image_url} alt="Jewelry showcase thumbnail" fill className="object-cover" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (confirm('Remove this photo from image arrays?')) {
-                        startTransition(async () => { await deleteProductImage(img.id, product.id) })
-                      }
+
+              {/* Delete — always visible, not hover-only, so it works on touch/mobile too */}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm('Remove this photo from image arrays?')) {
+                    startTransition(async () => { await deleteProductImage(img.id, product.id) })
+                  }
+                }}
+                disabled={isPending}
+                className="absolute top-2 right-2 z-10 p-1.5 bg-red-600/90 text-white rounded-full hover:bg-red-700 transition-colors shadow-sm"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Bottom control bar — always visible, not hover-only */}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/50 to-transparent pt-8 pb-2 px-2 flex flex-col items-center gap-1.5">
+                {productColors.length > 0 && (
+                  <select
+                    value={img.color_name || ''}
+                    onChange={(e) => {
+                      startTransition(async () => {
+                        await updateProductImageColor(img.id, product.id, e.target.value || null)
+                      })
                     }}
                     disabled={isPending}
-                    className="p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                    className="w-full text-[10px] font-semibold text-stone-800 bg-white/95 rounded-md px-1.5 py-1 border-0 focus:outline-none focus:ring-1 focus:ring-[#c5a880]"
                   >
-                    <X className="w-4 h-4" />
+                    <option value="">General (all colors)</option>
+                    {productColors.map((c) => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                )}
+                {!isFeatured && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      startTransition(async () => { await setFeaturedImage(product.id, img.image_url) })
+                    }}
+                    disabled={isPending}
+                    className="px-3 py-1.5 text-xs font-medium text-stone-900 bg-white rounded-full hover:bg-stone-50 transition-colors"
+                  >
+                    Set as Featured
                   </button>
-                </div>
-
-                <div className="flex justify-center mb-2">
-                  {!isFeatured && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        startTransition(async () => { await setFeaturedImage(product.id, img.image_url) })
-                      }}
-                      disabled={isPending}
-                      className="px-3 py-1.5 text-xs font-medium text-stone-900 bg-white rounded-full hover:bg-stone-50 transition-colors"
-                    >
-                      Set as Featured
-                    </button>
-                  )}
-                  {isFeatured && (
-                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-[#7c6243] bg-[#fdfaf4] border border-[#c5a880]/30 rounded-full">
-                      <Star className="w-3 h-3 mr-1 fill-current" />
-                      Cover Photo
-                    </span>
-                  )}
-                </div>
+                )}
+                {isFeatured && (
+                  <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-[#7c6243] bg-[#fdfaf4] border border-[#c5a880]/30 rounded-full">
+                    <Star className="w-3 h-3 mr-1 fill-current" />
+                    Cover Photo
+                  </span>
+                )}
               </div>
             </div>
           )
         })}
 
-        {activeImages.length === 0 && (
+        {displayedImages.length === 0 && (
           <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-stone-300 rounded-xl bg-stone-50">
-            <p className="text-sm text-stone-500">No gallery images connected yet</p>
+            <p className="text-sm text-stone-500">
+              {activeImages.length === 0 ? 'No gallery images connected yet' : `No images uploaded for "${activeTab}" yet`}
+            </p>
           </div>
         )}
       </div>

@@ -761,6 +761,8 @@ type ShippingSettings = {
   online_discount?: number
 }
 
+const PENDING_RAZORPAY_ORDER_KEY = 'boujee-pending-razorpay-order'
+
 export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: ShippingSettings, isLoggedIn: boolean }) {
   const { cart, cartTotal, clearCart, updateQuantity, removeFromCart } = useCart()
   const { showToast } = useToast()
@@ -809,30 +811,99 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
   const [pendingOrder, setPendingOrder] = useState<any>(null)
   const [checkingStatus, setCheckingStatus] = useState(false)
   const [pendingFailed, setPendingFailed] = useState(false)
+  const [isProcessingSuccess, setIsProcessingSuccess] = useState(false)
 
-  // 1. Prefill from local storage on mount
+  // On mobile, UPI intent apps (PhonePe/GPay) hand off to a native app and back —
+  // Android frequently backgrounds/reloads the browser tab during that handoff,
+  // which wipes this component's in-memory state before the Razorpay `handler`
+  // callback (or `ondismiss`) ever fires. Persisting the pending order reference
+  // lets us recover it on the next mount/tab-focus instead of showing nothing.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedData = localStorage.getItem('boujee-customer-profile') || localStorage.getItem('gulshan-customer-profile')
-      if (savedData) {
-        try {
-          const parsed = JSON.parse(savedData)
-          setProfile({
-            fullName: parsed.fullName || parsed.full_name || '',
-            email: parsed.email || '',
-            phone: parsed.phone || '',
-            alternatePhone: parsed.alternatePhone || '',
-            street: parsed.street || '',
-            city: parsed.city || '',
-            state: parsed.state || '',
-            zipCode: parsed.zipCode || '',
-          })
-        } catch (e) {
-          console.error(e)
-        }
+    if (typeof window === 'undefined') return
+    const raw = localStorage.getItem(PENDING_RAZORPAY_ORDER_KEY)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed?.orderId) {
+        recoverPendingOrder(parsed)
+      }
+    } catch (e) {
+      console.error(e)
+      localStorage.removeItem(PENDING_RAZORPAY_ORDER_KEY)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Re-check whenever the tab regains focus (covers the case where the tab
+  // survived the app-switch but the Razorpay callback still never fired).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const raw = localStorage.getItem(PENDING_RAZORPAY_ORDER_KEY)
+      if (!raw) return
+      try {
+        const parsed = JSON.parse(raw)
+        if (parsed?.orderId) recoverPendingOrder(parsed)
+      } catch (e) {
+        console.error(e)
       }
     }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 1. Prefill from local storage and cookie state on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let parsed: any = null;
+
+      // Try checking cookie state first
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; boujee-customer-profile-token=`);
+      if (parts.length === 2) {
+        const val = parts.pop()?.split(';').shift();
+        if (val) {
+          try {
+            parsed = JSON.parse(decodeURIComponent(val));
+          } catch (e) {
+            console.warn("Failed parsing profile cookie", e);
+          }
+        }
+      }
+
+      // Try local storage if cookie was not found/parsed
+      if (!parsed) {
+        const savedData = localStorage.getItem('boujee-customer-profile') || localStorage.getItem('gulshan-customer-profile');
+        if (savedData) {
+          try {
+            parsed = JSON.parse(savedData);
+          } catch (e) {
+            console.error("Failed parsing profile local storage", e);
+          }
+        }
+      }
+
+      if (parsed) {
+        setProfile(prev => ({
+          ...prev,
+          fullName: parsed.fullName || parsed.full_name || '',
+          email: parsed.email || prev.email,
+          phone: parsed.phone || '',
+          alternatePhone: parsed.alternatePhone || '',
+          street: parsed.street || parsed.address_line_1 || '',
+          city: parsed.city || '',
+          state: parsed.state || '',
+          zipCode: parsed.zipCode || parsed.postal_code || '',
+        }));
+      }
+    }
+  }, []);
 
   // Load user profile and default address from database if logged in
   useEffect(() => {
@@ -842,7 +913,7 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
         supabase.auth.getUser().then(({ data }) => {
           if (data?.user) {
             Promise.all([
-              supabase.from('profiles').select('*').eq('id', data.user.id).single(),
+              supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle(),
               supabase.from('addresses').select('*').eq('user_id', data.user.id).order('is_default', { ascending: false }).limit(1).maybeSingle()
             ]).then(([profRes, addrRes]) => {
               const profileData = profRes.data
@@ -916,6 +987,20 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
     // Function to initialize and open Razorpay popup
     const openModal = () => {
       try {
+        // Persist the pending order reference BEFORE handing off to the
+        // gateway. UPI intent apps (PhonePe/GPay) redirect the user away
+        // from the browser; on return the tab may have been backgrounded or
+        // reloaded by the OS, wiping this component's state before the
+        // `handler`/`ondismiss` callbacks below ever get a chance to run.
+        // Without this, the customer just sees an empty checkout page with
+        // no sign the order (or payment) exists.
+        localStorage.setItem(PENDING_RAZORPAY_ORDER_KEY, JSON.stringify({
+          ...orderData,
+          shippingAddress: addressString,
+          total: grandTotal,
+          items: [...cart],
+        }))
+
         const options = {
           key: keyId,
           amount: orderData.amount,
@@ -923,6 +1008,13 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
           name: SITE.name,
           description: "Order Payment",
           order_id: orderData.razorpayOrderId,
+          // Without a timeout, a UPI intent that never resolves (app didn't
+          // open, bank never responded) leaves the "Processing your payment"
+          // screen spinning forever with only Razorpay's own manual Cancel
+          // as an escape. This auto-dismisses after 5 minutes so `ondismiss`
+          // below fires and drops the user into our pending/retry recovery
+          // screen instead of a dead end.
+          timeout: 300,
           modal: {
             ondismiss: function () {
               setPendingOrder({
@@ -935,6 +1027,9 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
             }
           },
           handler: async function (response: any) {
+            if (isProcessingSuccess) return
+            setIsProcessingSuccess(true)
+            localStorage.removeItem(PENDING_RAZORPAY_ORDER_KEY)
             const verifyRes = await verifyRazorpayPayment(
               response.razorpay_payment_id,
               response.razorpay_order_id,
@@ -942,17 +1037,10 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
               orderData.orderId
             )
             if (verifyRes.success) {
-              setPlacedOrder({
-                order_number: orderData.orderNumber,
-                id: orderData.orderId,
-                total: grandTotal,
-                items: [...cart],
-                shippingAddress: addressString,
-                payment_id: response.razorpay_payment_id
-              })
               clearCart()
               router.push(`/checkout/success?orderId=${encodeURIComponent(orderData.orderId)}`)
             } else {
+              setIsProcessingSuccess(false)
               showToast('Payment verification failed. Please contact support.', 'error')
             }
           },
@@ -1010,40 +1098,49 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
       if (res.isRazorpay) {
         handleRazorpayPayment(res, addressString)
       } else {
-        setPlacedOrder({
-          order_number: res.order_number,
-          id: res.orderId,
-          total: grandTotal,
-          items: [...cart],
-          shippingAddress: addressString
-        })
         clearCart()
         router.push(`/checkout/success?orderId=${encodeURIComponent(res.orderId)}`)
       }
     }
   }
 
-  const handleCheckPaymentStatus = async () => {
-    if (!pendingOrder) return
-    setCheckingStatus(true)
-    const res = await checkPaymentStatus(pendingOrder.orderId)
-    setCheckingStatus(false)
+  // Shared by the mount/tab-focus recovery effects above and the manual
+  // "Check Payment Status" button. `silent` suppresses toasts for the
+  // automatic background checks so we don't spam the user on every tab focus.
+  const recoverPendingOrder = async (parsed: any, opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? true
+    if (!silent) setCheckingStatus(true)
+    const res = await checkPaymentStatus(parsed.orderId)
+    if (!silent) setCheckingStatus(false)
+
     if (!res.found) {
-      showToast(res.error || 'Order not found. It may have been removed.', 'error')
+      localStorage.removeItem(PENDING_RAZORPAY_ORDER_KEY)
+      if (!silent) showToast(res.error || 'Order not found. It may have been removed.', 'error')
       return
     }
+
     if (res.payment_status === 'paid' || res.status === 'confirmed') {
+      if (isProcessingSuccess) return
+      setIsProcessingSuccess(true)
+      localStorage.removeItem(PENDING_RAZORPAY_ORDER_KEY)
       setPendingOrder(null)
       setPendingFailed(false)
       clearCart()
       router.push(`/checkout/success?orderId=${encodeURIComponent(res.orderId)}`)
     } else if (res.payment_status === 'failed') {
+      setPendingOrder(parsed)
       setPendingFailed(true)
-      showToast('This payment was marked failed by the gateway. You can retry or contact support.', 'error')
+      if (!silent) showToast('This payment was marked failed by the gateway. You can retry or contact support.', 'error')
     } else {
+      setPendingOrder(parsed)
       setPendingFailed(false)
-      showToast('Your payment is still pending with the gateway. You can retry now.', 'info')
+      if (!silent) showToast('Your payment is still pending with the gateway. You can retry now.', 'info')
     }
+  }
+
+  const handleCheckPaymentStatus = async () => {
+    if (!pendingOrder) return
+    await recoverPendingOrder(pendingOrder, { silent: false })
   }
 
   const handleRetryPayment = async () => {
@@ -1055,6 +1152,7 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
   const handleCancelPendingOrder = async () => {
     if (!pendingOrder) return
     await cancelPendingOrder(pendingOrder.orderId)
+    localStorage.removeItem(PENDING_RAZORPAY_ORDER_KEY)
     setPendingOrder(null)
     setPendingFailed(false)
     showToast('Your pending order has been cancelled.', 'success')
@@ -1095,62 +1193,7 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
     return `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`
   }
 
-  if (placedOrder) {
-    const orderRef = placedOrder.order_number || `#${String(placedOrder.id).substring(0, 8).toUpperCase()}`
-    return (
-      <div className="max-w-md mx-auto bg-white rounded-3xl p-8 border border-neutral-100 shadow-xl text-center space-y-6 animate-fade-in mt-6" style={{ fontFamily: 'Poppins, sans-serif' }}>
-        <div className="w-16 h-16 bg-neutral-50 text-[#c5a880] border border-[#c5a880]/20 rounded-full flex items-center justify-center mx-auto">
-          <CheckCircle2 className="w-10 h-10" />
-        </div>
-        <div>
-          <h2 className="font-display font-bold text-2xl text-neutral-900" style={{ fontFamily: 'Playfair Display, serif' }}>Order Placed Successfully!</h2>
-          <p className="text-sm text-neutral-500 mt-1">Thank you for shopping with The Boujee Bazaar.</p>
-        </div>
-        <div className="p-4 bg-neutral-50/50 rounded-2xl border border-neutral-100 text-left space-y-3">
-          <div className="flex justify-between text-xs">
-            <span className="text-neutral-400 uppercase font-semibold">Order Number</span>
-            <span className="font-mono font-bold text-neutral-900">{orderRef}</span>
-          </div>
-          {placedOrder.payment_id && (
-            <div className="flex justify-between text-xs">
-              <span className="text-neutral-400 uppercase font-semibold">Payment Txn ID</span>
-              <span className="font-mono font-bold text-neutral-900 text-xs">{placedOrder.payment_id}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-xs">
-            <span className="text-neutral-400 uppercase font-semibold">Grand Total</span>
-            <span className="font-bold text-neutral-900">₹{placedOrder.total.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-neutral-400 uppercase font-semibold">Payment Method</span>
-            <span className="font-bold text-neutral-900">{paymentMethod}</span>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <a
-            href={getWhatsappLink()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 bg-neutral-900 text-white font-semibold rounded-full shadow-md hover:bg-neutral-800 transition-all text-sm"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.665.989 3.3 1.49 4.975 1.491 5.474 0 9.932-4.457 9.935-9.931a9.885 9.885 0 0 0-2.883-7.054A9.882 9.882 0 0 0 11.758 1.15c-5.483 0-9.94 4.458-9.944 9.934-.002 1.936.507 3.82 1.476 5.489L2.247 20.89l4.4-.736z" />
-            </svg>
-            Confirm via WhatsApp
-          </a>
-          <Link
-            href={`/track-order?order=${encodeURIComponent(orderRef)}`}
-            className="w-full inline-flex items-center justify-center py-3 text-sm text-[#c5a880] hover:text-neutral-900 font-semibold transition-colors"
-          >
-            Track My Order
-          </Link>
-          <a href="/" className="w-full inline-flex items-center justify-center py-3 text-sm text-neutral-500 hover:text-neutral-900 font-semibold transition-colors">
-            Return to Store
-          </a>
-        </div>
-      </div>
-    )
-  }
+
 
   if (pendingOrder) {
     const pendingRef = pendingOrder.orderNumber || pendingOrder.orderId
@@ -1401,7 +1444,20 @@ export default function CheckoutForm({ shipping, isLoggedIn }: { shipping: Shipp
                           ₹{(item.price * item.quantity).toLocaleString('en-IN')}
                         </span>
                       </div>
-                      <p className="text-[11px] text-neutral-400">{item.variant_name ? `${item.variant_name} • ` : ''}₹{item.price} each</p>
+                      <p className="text-[11px] text-neutral-400 flex items-center gap-1">
+                        {item.variant_name && (
+                          <span className="inline-flex items-center gap-1">
+                            {item.variant_color_hex && (
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                                style={{ backgroundColor: item.variant_color_hex }}
+                              />
+                            )}
+                            {item.variant_name} •
+                          </span>
+                        )}
+                        ₹{item.price} each
+                      </p>
                       <div className="flex items-center justify-between pt-1">
                         <div className="flex items-center border border-neutral-100 rounded-full p-0.5 bg-neutral-50">
                           <button type="button" onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)} className="p-1 text-neutral-500 hover:text-neutral-900 rounded-full hover:bg-white transition-colors">

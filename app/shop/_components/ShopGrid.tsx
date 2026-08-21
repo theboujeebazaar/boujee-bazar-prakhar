@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Star } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { useToast } from '@/context/ToastContext'
@@ -22,9 +23,13 @@ type Product = {
   subcategory?: string
   badge?: string
   rating: number
+  reviewCount?: number
   colorCount?: number
   stock?: number
   available?: boolean
+  colorsList?: { name: string; hex: string }[]
+  defaultColorName?: string
+  defaultColorHex?: string
 }
 
 type Category = {
@@ -143,6 +148,23 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
   // Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
   const currentProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  // Collapses long page lists (e.g. 8+ pages on a 117-product catalog) down to a
+  // fixed-width strip — first, last, a window around the current page, and
+  // ellipsis gaps — so it never overflows a phone screen.
+  const getPageNumbers = (): (number | 'ellipsis')[] => {
+    const pages: (number | 'ellipsis')[] = []
+    const delta = 1
+    const left = Math.max(2, currentPage - delta)
+    const right = Math.min(totalPages - 1, currentPage + delta)
+
+    pages.push(1)
+    if (left > 2) pages.push('ellipsis')
+    for (let i = left; i <= right; i++) pages.push(i)
+    if (right < totalPages - 1) pages.push('ellipsis')
+    if (totalPages > 1) pages.push(totalPages)
+    return pages
+  }
 
   const handleWishlistToggle = (p: Product, e: React.MouseEvent) => {
     e.preventDefault()
@@ -402,10 +424,24 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
                               {p.name}
                             </h3>
                           </Link>
-                          {p.colorCount && p.colorCount > 1 && (
-                            <p className="mt-1 text-[11px] font-medium text-[#c5a880]">
-                              {p.colorCount} tones available
-                            </p>
+                          {(p.reviewCount ?? 0) > 0 && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <Star className="w-3 h-3 fill-[#c5a880] text-[#c5a880]" />
+                              <span className="text-[11px] font-semibold text-neutral-700">{p.rating.toFixed(1)}</span>
+                              <span className="text-[11px] text-neutral-400">({p.reviewCount})</span>
+                            </div>
+                          )}
+                          {p.colorsList && p.colorsList.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                              {p.colorsList.map((c: any) => (
+                                <span 
+                                  key={c.name} 
+                                  className="w-3 h-3 rounded-full border border-black/10 shadow-2xs block" 
+                                  style={{ backgroundColor: c.hex }}
+                                  title={c.name}
+                                />
+                              ))}
+                            </div>
                           )}
                         </div>
 
@@ -435,18 +471,24 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
                                 name: p.name,
                                 price: p.price,
                                 image_url: p.image_url,
-                                category_name: catName
+                                category_name: catName,
+                                variant_name: p.defaultColorName,
+                                variant_color_hex: p.defaultColorHex,
+                                variant_id: p.defaultColorName ? `${p.id}-${p.defaultColorName}` : undefined
                               });
 
                               if (typeof window !== 'undefined') {
                                 const currentItem = {
                                   id: p.id,
-                                  cartItemId: p.id + '-init',
+                                  cartItemId: p.defaultColorName ? `${p.id}-${p.defaultColorName}` : `${p.id}-init`,
                                   name: p.name,
                                   price: p.price,
                                   image: p.image_url,
                                   quantity: 1,
-                                  category_name: catName
+                                  category_name: catName,
+                                  variant_name: p.defaultColorName,
+                                  variant_color_hex: p.defaultColorHex,
+                                  variant_id: p.defaultColorName ? `${p.id}-${p.defaultColorName}` : undefined
                                 };
 
                                 const encodedData = encodeURIComponent(JSON.stringify([currentItem]));
@@ -473,39 +515,45 @@ export default function ShopGrid({ initialProducts, categories, selectedCategory
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-12 mb-4">
-                  <button 
+                <div className="flex items-center justify-center gap-1 sm:gap-2 mt-12 mb-4 px-2">
+                  <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                    className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`w-10 h-10 flex items-center justify-center rounded-full text-sm font-semibold transition-colors ${
-                          currentPage === page 
-                            ? 'bg-neutral-900 text-white' 
-                            : 'text-neutral-600 hover:bg-neutral-50'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
+
+                  <div className="flex items-center gap-0.5 sm:gap-1">
+                    {getPageNumbers().map((page, idx) =>
+                      page === 'ellipsis' ? (
+                        <span key={`ellipsis-${idx}`} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-neutral-300 text-xs sm:text-sm">
+                          &hellip;
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-full text-xs sm:text-sm font-semibold transition-colors ${
+                            currentPage === page
+                              ? 'bg-neutral-900 text-white'
+                              : 'text-neutral-600 hover:bg-neutral-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    )}
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                    className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>

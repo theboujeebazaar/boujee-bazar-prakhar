@@ -13,6 +13,7 @@ export type CartItem = {
   category_name?: string
   variant_id?: string
   variant_name?: string
+  variant_color_hex?: string
 }
 
 type CartContextType = {

@@ -198,7 +198,17 @@ try {
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-stone-600">{item.variant_name || 'Standard'}</td>
+                        <td className="px-6 py-4 text-stone-600">
+                          <span className="inline-flex items-center gap-1.5">
+                            {item.variant_color_hex && (
+                              <span
+                                className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+                                style={{ backgroundColor: item.variant_color_hex }}
+                              />
+                            )}
+                            {item.variant_name || 'Standard'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-stone-400 text-xs">{item.id || item.product_id || '—'}</td>
                         <td className="px-6 py-4 text-stone-600">₹{(item.price || item.price_at_purchase || 0).toLocaleString('en-IN')}</td>
                         <td className="px-6 py-4 text-stone-600">{item.quantity}</td>

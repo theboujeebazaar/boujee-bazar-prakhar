@@ -3,6 +3,7 @@ import Footer from '@/components/Footer'
 import ProfileManager from './_components/ProfileManager'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 
 export const metadata = {
   title: 'My Profile | The Boujee Bazaar',
@@ -24,7 +25,7 @@ export default async function CustomerProfilePage() {
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     const { data: address } = await supabase
       .from('addresses')
@@ -34,18 +35,6 @@ export default async function CustomerProfilePage() {
       .limit(1)
       .maybeSingle()
 
-    if (profile) {
-      adminProfile = {
-        ...profile,
-        phone: profile.phone || address?.phone || '',
-        alternatePhone: address?.alternate_phone || '',
-        street: address?.address_line_1 || '',
-        city: address?.city || '',
-        state: address?.state || '',
-        zipCode: address?.postal_code || '',
-      }
-    }
-
     const { data: userOrders } = await supabase
       .from('orders')
       .select('*')
@@ -54,6 +43,31 @@ export default async function CustomerProfilePage() {
     
     if (userOrders) {
       orders = userOrders
+    }
+
+    const lastOrder = orders[0] as any
+
+    // Read cookie fallback if any
+    let cookieProfile: any = null
+    try {
+      const cookieStore = await cookies()
+      const profileCookie = cookieStore.get('boujee-customer-profile-token')?.value
+      if (profileCookie) {
+        cookieProfile = JSON.parse(decodeURIComponent(profileCookie))
+      }
+    } catch (e) {
+      console.warn("Failed to parse cookie profile:", e)
+    }
+
+    adminProfile = {
+      email: user.email || '',
+      full_name: profile?.full_name || lastOrder?.customer_name || cookieProfile?.fullName || user.user_metadata?.full_name || user.user_metadata?.name || '',
+      phone: profile?.phone || address?.phone || lastOrder?.customer_phone || cookieProfile?.phone || '',
+      alternatePhone: address?.alternate_phone || cookieProfile?.alternatePhone || '',
+      street: address?.address_line_1 || lastOrder?.shipping_street || cookieProfile?.street || '',
+      city: address?.city || lastOrder?.shipping_city || cookieProfile?.city || '',
+      state: address?.state || lastOrder?.shipping_state || cookieProfile?.state || '',
+      zipCode: address?.postal_code || lastOrder?.shipping_pincode || cookieProfile?.zipCode || '',
     }
   }
 

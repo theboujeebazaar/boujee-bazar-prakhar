@@ -9,13 +9,7 @@ export const metadata: Metadata = {
 export default async function NewProductPage() {
   const supabase = createAdminClient()
 
-  const [{ data: categories }, { data: otherProducts }] = await Promise.all([
-    supabase.from('categories').select('*').order('name'),
-    supabase
-      .from('products')
-      .select('id, name, color_group_id, color_name')
-      .order('name'),
-  ])
+  const { data: categories } = await supabase.from('categories').select('*').order('name')
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -25,7 +19,7 @@ export default async function NewProductPage() {
           Add a new product to your catalog
         </p>
       </div>
-      <ProductForm categories={categories || []} otherProducts={otherProducts || []} />
+      <ProductForm categories={categories || []} />
     </div>
   )
 }

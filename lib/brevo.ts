@@ -118,6 +118,8 @@ type OrderEmailItem = {
   quantity?: number
   price?: number
   variant_name?: string
+  image?: string
+  image_url?: string
 }
 
 export type OrderEmailData = {
@@ -134,23 +136,54 @@ export type OrderEmailData = {
 
 const formatINR = (n: number) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`
 
+export function getAbsoluteImageUrl(src?: string | null): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://theboujeebazaar.in'
+  if (!src) return `${siteUrl}/assets/img/pr_1.jpeg`
+  const trimmed = src.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
+  const cleanSrc = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  return `${siteUrl}${cleanSrc}`
+}
+
 export function orderConfirmationEmailHtml(order: OrderEmailData) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://theboujeebazaar.in'
   const trackLink = `${siteUrl}/track-order?order=${encodeURIComponent(order.id)}`
   const items = order.items || []
+  const itemCount = items.reduce((sum, it) => sum + (Number(it.quantity) || 1), 0)
 
   const itemRows = items
-    .map((item) => {
+    .map((item, idx) => {
       const qty = Number(item.quantity) || 1
       const lineTotal = (Number(item.price) || 0) * qty
+      const imgUrl = getAbsoluteImageUrl(item.image_url || item.image)
+      const isLast = idx === items.length - 1
+
       return `
         <tr>
-          <td style="padding: 10px 0; border-bottom: 1px solid ${BRAND.border}; font-size: 13px; color: ${BRAND.ink};">
-            ${item.name || 'Item'}${item.variant_name ? ` <span style="color:${BRAND.goldDark}; opacity:0.8;">(${item.variant_name})</span>` : ''}
-            <div style="color: ${BRAND.ink}; opacity: 0.5; font-size: 11px; margin-top: 2px;">Qty: ${qty}</div>
-          </td>
-          <td style="padding: 10px 0; border-bottom: 1px solid ${BRAND.border}; font-size: 13px; color: ${BRAND.ink}; text-align: right; white-space: nowrap;">
-            ${formatINR(lineTotal)}
+          <td colspan="3" style="padding: 0; border-bottom: ${isLast ? '0' : `1px solid ${BRAND.border}`};">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse;">
+              <tr>
+                <td style="padding: 18px 0; width: 68px; vertical-align: top;">
+                  <img src="${imgUrl}" alt="${item.name || 'Product Image'}" width="60" height="76" style="width: 60px; height: 76px; object-fit: cover; border-radius: 12px; border: 1px solid ${BRAND.border}; display: block;" />
+                </td>
+                <td style="padding: 18px 0 18px 16px; vertical-align: top; text-align: left;">
+                  <div style="font-size: 14px; font-weight: 700; color: ${BRAND.ink}; line-height: 1.4; font-family: Georgia, 'Times New Roman', serif;">
+                    ${item.name || 'Item'}
+                  </div>
+                  ${item.variant_name ? `
+                    <div style="margin-top: 7px;">
+                      <span style="font-size: 9px; font-weight: 700; color: ${BRAND.goldDark}; text-transform: uppercase; background-color: ${BRAND.cream}; border: 1px solid ${BRAND.gold}; padding: 3px 8px; border-radius: 20px; display: inline-block; letter-spacing: 0.5px;">
+                        ${item.variant_name}
+                      </span>
+                    </div>
+                  ` : ''}
+                  <div style="color: ${BRAND.ink}; opacity: 0.45; font-size: 11px; margin-top: 7px; font-weight: 600; letter-spacing: 0.3px;">QTY ${qty}</div>
+                </td>
+                <td style="padding: 18px 0; vertical-align: top; text-align: right; white-space: nowrap; font-size: 14px; font-weight: 700; color: ${BRAND.ink};">
+                  ${formatINR(lineTotal)}
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
       `
@@ -159,58 +192,96 @@ export function orderConfirmationEmailHtml(order: OrderEmailData) {
 
   const summaryRow = (label: string, value: string, bold = false) => `
     <tr>
-      <td style="padding: 4px 0; font-size: ${bold ? '15px' : '13px'}; color: ${BRAND.ink}; font-weight: ${bold ? '700' : '400'}; opacity: ${bold ? '1' : '0.7'};">${label}</td>
-      <td style="padding: 4px 0; font-size: ${bold ? '15px' : '13px'}; color: ${BRAND.ink}; font-weight: ${bold ? '700' : '400'}; text-align: right;">${value}</td>
+      <td style="padding: 7px 0; font-size: ${bold ? '15px' : '12.5px'}; color: ${BRAND.ink}; font-weight: ${bold ? '700' : '500'}; opacity: ${bold ? '1' : '0.55'}; text-align: left; letter-spacing: ${bold ? '0.2px' : '0'};">${label}</td>
+      <td style="padding: 7px 0; font-size: ${bold ? '15px' : '12.5px'}; color: ${bold ? BRAND.goldDark : BRAND.ink}; font-weight: ${bold ? '800' : '600'}; text-align: right;">${value}</td>
     </tr>
   `
 
   const discountRow = order.discount && order.discount > 0 ? summaryRow('Discount', `-${formatINR(order.discount)}`) : ''
 
   return `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px; border: 1px solid ${BRAND.border}; border-radius: 24px; background-color: ${BRAND.cream}; color: ${BRAND.ink};">
-      <h1 style="color: ${BRAND.ink}; font-size: 20px; font-weight: 700; letter-spacing: 1px; margin: 0 0 24px; font-family: Georgia, serif; text-align: center;">
-        the<span style="color: ${BRAND.gold};">boujee</span> bazaar<span style="color: ${BRAND.gold};">.</span>
-      </h1>
-      <hr style="border: 0; border-top: 1px solid ${BRAND.border}; margin: 0 0 24px;" />
-
-      <h2 style="color: ${BRAND.ink}; font-size: 20px; font-weight: 700; margin: 0 0 6px; text-align: center;">Order Confirmed!</h2>
-      <p style="color: ${BRAND.ink}; opacity: 0.7; font-size: 13px; margin: 0 0 4px; text-align: center;">
-        Thank you${order.customer_name ? `, ${order.customer_name}` : ''}, for shopping with The Boujee Bazaar.
-      </p>
-      <p style="color: ${BRAND.goldDark}; font-size: 13px; font-weight: 700; margin: 0 0 28px; text-align: center;">
-        Order #${order.id}
-      </p>
-
-      <table style="width: 100%; border-collapse: collapse; margin: 0 0 16px;">
-        ${itemRows}
-      </table>
-
-      <table style="width: 100%; border-collapse: collapse; margin: 0 0 24px;">
-        ${order.subtotal != null ? summaryRow('Subtotal', formatINR(order.subtotal)) : ''}
-        ${order.shipping_fee != null ? summaryRow('Shipping', order.shipping_fee > 0 ? formatINR(order.shipping_fee) : 'Free') : ''}
-        ${discountRow}
-        ${summaryRow('Total Paid', formatINR(order.total), true)}
-      </table>
-
-      ${order.shipping_address ? `
-        <div style="background-color: #fff; border: 1px solid ${BRAND.border}; border-radius: 14px; padding: 14px 16px; margin: 0 0 24px;">
-          <p style="margin: 0 0 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: ${BRAND.goldDark};">Shipping to</p>
-          <p style="margin: 0; font-size: 13px; color: ${BRAND.ink}; opacity: 0.8; line-height: 1.5;">${order.shipping_address}</p>
-        </div>
-      ` : ''}
-
-      <p style="margin: 0 0 20px; font-size: 13px; color: ${BRAND.ink}; opacity: 0.7; text-align: center;">
-        Payment Method: <strong style="opacity: 1;">${order.payment_method || '—'}</strong>
-      </p>
-
-      <div style="text-align: center;">
-        <a href="${trackLink}" style="display: inline-block; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #fff; padding: 14px 32px; border-radius: 999px; background-color: ${BRAND.ink}; text-decoration: none;">
-          Track My Order
-        </a>
+    <div style="background-color: #F3EFE8; padding: 48px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
+        Your order #${order.id} is confirmed — ${formatINR(order.total)} paid. Thank you for shopping with The Boujee Bazaar.
       </div>
 
-      <hr style="border: 0; border-top: 1px solid ${BRAND.border}; margin: 28px 0 20px;" />
-      <p style="color: ${BRAND.goldDark}; opacity: 0.8; font-size: 11px; margin: 0; text-align: center;">&copy; ${new Date().getFullYear()} The Boujee Bazaar. All rights reserved.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 540px; margin: 0 auto; border-collapse: separate;">
+
+        <!-- Gold Header Banner -->
+        <tr>
+          <td style="background: linear-gradient(135deg, ${BRAND.gold} 0%, ${BRAND.goldDark} 100%); border-radius: 24px 24px 0 0; padding: 30px 32px; text-align: center;">
+            <h1 style="color: #ffffff; font-size: 22px; font-weight: 700; letter-spacing: 2px; margin: 0; font-family: Georgia, 'Times New Roman', serif; text-transform: lowercase;">
+              the<span style="opacity: 0.75;">boujee</span> bazaar<span style="opacity: 0.75;">.</span>
+            </h1>
+          </td>
+        </tr>
+
+        <!-- Main Card -->
+        <tr>
+          <td style="background-color: #ffffff; padding: 0 32px 36px; border-radius: 0 0 24px 24px; box-shadow: 0 12px 32px rgba(23, 20, 18, 0.08); color: ${BRAND.ink}; text-align: center;">
+
+            <!-- Success Hero -->
+            <div style="padding: 34px 0 28px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto 18px;">
+                <tr>
+                  <td style="width: 56px; height: 56px; border-radius: 50%; background-color: ${BRAND.cream}; border: 1.5px solid ${BRAND.gold}; text-align: center; vertical-align: middle; font-size: 24px; color: ${BRAND.goldDark}; font-weight: bold;">
+                    &#10003;
+                  </td>
+                </tr>
+              </table>
+              <h2 style="color: ${BRAND.ink}; font-size: 23px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.3px; font-family: Georgia, 'Times New Roman', serif;">Order Confirmed!</h2>
+              <p style="color: ${BRAND.ink}; opacity: 0.6; font-size: 13.5px; margin: 0 0 14px; line-height: 1.6;">
+                Thank you${order.customer_name ? `, ${order.customer_name}` : ''}, for shopping with The Boujee Bazaar.<br />Your ${itemCount} item${itemCount === 1 ? '' : 's'} ${itemCount === 1 ? 'is' : 'are'} being prepared with care.
+              </p>
+              <span style="display: inline-block; color: ${BRAND.goldDark}; font-size: 12.5px; font-weight: 700; letter-spacing: 0.8px; background-color: ${BRAND.cream}; border: 1px solid ${BRAND.border}; padding: 6px 16px; border-radius: 20px;">
+                ORDER #${order.id}
+              </span>
+            </div>
+
+            <!-- Product List -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; border-top: 1px solid ${BRAND.border}; margin-bottom: 4px;">
+              ${itemRows}
+            </table>
+
+            <!-- Charges Summary -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; margin: 20px 0 26px; border-top: 1px solid ${BRAND.border}; padding-top: 4px;">
+              <tr><td colspan="2" style="height: 10px;"></td></tr>
+              ${order.subtotal != null ? summaryRow('Subtotal', formatINR(order.subtotal)) : ''}
+              ${order.shipping_fee != null ? summaryRow('Shipping', order.shipping_fee > 0 ? formatINR(order.shipping_fee) : 'Free') : ''}
+              ${discountRow}
+              <tr><td colspan="2" style="padding-top: 10px; border-top: 1px dashed ${BRAND.border};"></td></tr>
+              ${summaryRow('Total Paid', formatINR(order.total), true)}
+            </table>
+
+            <!-- Delivery Address -->
+            ${order.shipping_address ? `
+              <div style="background-color: ${BRAND.cream}; border: 1px solid ${BRAND.border}; border-radius: 16px; padding: 18px 20px; text-align: left; margin-bottom: 20px;">
+                <p style="margin: 0 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: ${BRAND.goldDark};">&#128205; Shipping Address</p>
+                <p style="margin: 0; font-size: 12.5px; color: ${BRAND.ink}; opacity: 0.75; line-height: 1.6; font-weight: 500;">${order.shipping_address}</p>
+              </div>
+            ` : ''}
+
+            <p style="margin: 0 0 28px; font-size: 12.5px; color: ${BRAND.ink}; opacity: 0.55; font-weight: 500;">
+              Payment Method: <strong style="opacity: 1; color: ${BRAND.ink};">${order.payment_method || 'COD'}</strong>
+            </p>
+
+            <!-- CTA -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+              <tr>
+                <td style="border-radius: 50px; background: linear-gradient(135deg, ${BRAND.ink} 0%, #2b2622 100%); box-shadow: 0 6px 16px rgba(23, 20, 18, 0.18);">
+                  <a href="${trackLink}" style="display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: #ffffff; padding: 16px 40px; text-decoration: none;">
+                    Track My Order
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <hr style="border: 0; border-top: 1px solid ${BRAND.border}; margin: 32px 0 18px;" />
+            <p style="color: ${BRAND.ink}; opacity: 0.4; font-size: 11px; margin: 0 0 4px; font-style: italic; font-family: Georgia, serif;">With love, The Boujee Bazaar</p>
+            <p style="color: ${BRAND.goldDark}; opacity: 0.75; font-size: 10px; margin: 0; font-weight: 500;">&copy; ${new Date().getFullYear()} The Boujee Bazaar. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
     </div>
   `
 }

@@ -82,8 +82,20 @@ export default function CartDrawer({ isOpen, onClose, shipping }: CartDrawerProp
                       <h4 className="font-semibold text-ink text-sm leading-tight line-clamp-1">
                         {item.name}
                       </h4>
-                      <p className="text-[11px] text-ink/40 uppercase tracking-wider font-semibold mt-0.5">
-                        {item.category_name} {item.variant_name && `• Color: ${item.variant_name}`}
+                      <p className="text-[11px] text-ink/40 uppercase tracking-wider font-semibold mt-0.5 flex items-center gap-1">
+                        {item.category_name}
+                        {item.variant_name && (
+                          <span className="inline-flex items-center gap-1">
+                            • Color:
+                            {item.variant_color_hex && (
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                                style={{ backgroundColor: item.variant_color_hex }}
+                              />
+                            )}
+                            {item.variant_name}
+                          </span>
+                        )}
                       </p>
                     </div>
 

@@ -48,7 +48,7 @@ export async function submitReview(
       return { error: 'Failed to submit review. Please try again later.' }
     }
 
-    revalidatePath(`/product/[slug]`)
+    revalidatePath(`/shop/${productId}`)
     return { success: true }
   } catch (err: any) {
     console.error('Unexpected error submitting review:', err)

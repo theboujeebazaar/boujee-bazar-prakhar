@@ -403,9 +403,6 @@
 //   )
 // }
 'use client'
-import Image from "next/image";
-import { CldUploadWidget } from "next-cloudinary";
-import { Image as ImageIcon, Loader2, X } from "lucide-react";
 import { useTransition, useActionState, useState } from 'react'
 import {
   createProduct,
@@ -418,32 +415,52 @@ import { Save, ArrowLeft } from 'lucide-react'
 interface ProductFormProps {
   product?: any
   categories: any[]
-  otherProducts?: any[]
 }
 
-export default function ProductForm({ product, categories, otherProducts = [] }: ProductFormProps) {
+export default function ProductForm({ product, categories }: ProductFormProps) {
   const isEditing = !!product
   const action = isEditing ? updateProduct : createProduct
-  const [imageUrl, setImageUrl] = useState(product?.image || "")
-  const [imagesList, setImagesList] = useState<string[]>(
-    product?.images && product.images.length > 0
-      ? product.images
-      : product?.image
-      ? [product.image]
-      : []
-  )
-  const [isUploading, setIsUploading] = useState(false)
   const [state, formAction] = useActionState<ActionResult, FormData>(
     action,
     {}
   )
   const [pending, startTransition] = useTransition()
 
-  // Preselect color swatch defaults safely
-  const currentSibling = product?.color_group_id
-    ? otherProducts.find((p) => p.color_group_id === product.color_group_id)
-    : undefined
-  const [colorHex, setColorHex] = useState(product?.color_hex || '#c5a880')
+  // Parse initial color chips from color_swatches JSON, falling back to the legacy
+  // plain 'colors' array/comma-string (names only, default swatch color) for older products.
+  const initialColorChips = (() => {
+    if (product?.color_swatches) {
+      try {
+        const parsed = JSON.parse(product.color_swatches)
+        if (Array.isArray(parsed)) return parsed as { name: string; hex: string }[]
+      } catch (e) { }
+    }
+    if (product?.colors) {
+      const names = Array.isArray(product.colors)
+        ? product.colors
+        : typeof product.colors === 'string'
+          ? product.colors.split(',').map((c: string) => c.trim())
+          : []
+      return names.filter(Boolean).map((name: string) => ({ name, hex: '#c5a880' }))
+    }
+    return []
+  })()
+
+  const [colorsList, setColorsList] = useState<{ name: string; hex: string }[]>(initialColorChips)
+  const [colorInputName, setColorInputName] = useState('')
+  const [colorInputHex, setColorInputHex] = useState('#c5a880')
+
+  const handleAddColor = () => {
+    const name = colorInputName.trim()
+    if (!name) return
+    if (colorsList.some((c) => c.name.toLowerCase() === name.toLowerCase())) return
+    setColorsList([...colorsList, { name, hex: colorInputHex }])
+    setColorInputName('')
+  }
+
+  const handleRemoveColor = (nameToRemove: string) => {
+    setColorsList(colorsList.filter((c) => c.name !== nameToRemove))
+  }
 
   return (
     <form
@@ -486,7 +503,7 @@ export default function ProductForm({ product, categories, otherProducts = [] }:
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* LEFT COLUMN: Main specifications fields */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Basic Profile */}
           <div className="bg-white rounded-xl border border-stone-200/80 p-6 space-y-5">
             <h2 className="text-base font-semibold text-stone-900">Basic Jewelry Profile</h2>
@@ -629,7 +646,7 @@ export default function ProductForm({ product, categories, otherProducts = [] }:
                 className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c5a880]/30 focus:border-[#c5a880] transition-all resize-y"
               />
             </div>
-          </div> 
+          </div>
 
           {/* Section C: Search Engine Optimization (SEO) */}
           <div className="bg-white rounded-xl border border-stone-200/80 p-6 space-y-5">
@@ -667,114 +684,11 @@ export default function ProductForm({ product, categories, otherProducts = [] }:
 
         {/* RIGHT COLUMN: Media uploads & visibility switch panels */}
         <div className="space-y-6">
-          
-          {/* Section D: Catalog Cover Media Placement */}
-          <div className="bg-white rounded-xl border border-stone-200/80 p-6 space-y-4">
-            <h2 className="text-base font-semibold text-stone-900">Catalog Media</h2>
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">
-                Product Images
-              </label>
-              
-              <input type="hidden" name="image" value={imageUrl} />
-              <input type="hidden" name="images" value={JSON.stringify(imagesList)} />
-
-              {/* Grid of uploaded images */}
-              {imagesList.length > 0 && (
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  {imagesList.map((url, idx) => {
-                    const isCover = imageUrl === url || (!imageUrl && idx === 0)
-                    return (
-                      <div key={idx} className={`relative aspect-square rounded-xl overflow-hidden border-2 ${isCover ? 'border-[#c5a880]' : 'border-stone-200'}`}>
-                        <Image src={url} alt="product image" fill className="object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = imagesList.filter((_, i) => i !== idx)
-                            setImagesList(updated)
-                            if (isCover) {
-                              setImageUrl(updated.length > 0 ? updated[0] : "")
-                            }
-                          }}
-                          className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                        
-                        {!isCover && (
-                          <button
-                            type="button"
-                            onClick={() => setImageUrl(url)}
-                            className="absolute bottom-1 left-1 right-1 py-1 text-[10px] font-bold text-center bg-white/90 hover:bg-white text-stone-800 rounded shadow-sm transition-colors"
-                          >
-                            Set Cover
-                          </button>
-                        )}
-                        {isCover && (
-                          <div className="absolute bottom-1 left-1 right-1 py-1 text-[10px] font-bold text-center bg-[#fdfaf4] text-[#7c6243] border border-[#c5a880]/30 rounded">
-                            Cover
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Upload Button - Always visible so they can add more */}
-              <CldUploadWidget
-                signatureEndpoint="/api/cloudinary/sign"
-                uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
-                options={{
-                  multiple: true,
-                  resourceType: "image",
-                  clientAllowedFormats: ["jpg", "jpeg", "png", "webp"],
-                }}
-                onOpen={() => setIsUploading(true)}
-                onSuccess={(result: any) => {
-                  setIsUploading(false)
-                  const urls: string[] = []
-                  if (result?.info?.files) {
-                    result.info.files.forEach((f: any) => {
-                      const u = f.uploadInfo?.secure_url || f.secure_url
-                      if (u) urls.push(u)
-                    })
-                  } else if (result?.info?.secure_url) {
-                    urls.push(result.info.secure_url)
-                  }
-                  
-                  if (urls.length > 0) {
-                    setImagesList((prev) => [...prev, ...urls])
-                    setImageUrl((prev) => prev || urls[0])
-                  }
-                }}
-                onError={() => setIsUploading(false)}
-              >
-                {({ open }) => (
-                  <button
-                    type="button"
-                    onClick={() => open()}
-                    disabled={isUploading}
-                    className="w-full py-4 border-2 border-dashed border-stone-300 hover:border-[#c5a880] rounded-xl flex flex-col items-center justify-center gap-1.5 bg-stone-50 hover:bg-stone-100/50 text-stone-500 hover:text-stone-700 transition-all"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-[#c5a880]" />
-                    ) : (
-                      <>
-                        <ImageIcon className="w-6 h-6 text-stone-400" />
-                        <span className="text-xs font-semibold">Upload Product Images (Multiple Allowed)</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </CldUploadWidget>
-            </div>
-          </div>
 
           {/* Section E: Visibility Controls & Status Badges */}
           <div className="bg-white rounded-xl border border-stone-200/80 p-6 space-y-5">
             <h2 className="text-base font-semibold text-stone-900">Visibility & Status Badges</h2>
-            
+
             {/* Storefront Promo Tag */}
             <div>
               <label htmlFor="product-badge" className="block text-sm font-medium text-stone-700 mb-1.5">
@@ -830,67 +744,84 @@ export default function ProductForm({ product, categories, otherProducts = [] }:
             </div>
           </div>
 
-          {/* Section F: Metal Tone Variations */}
+          {/* Section F: Product Colors */}
           <div className="bg-white rounded-xl border border-stone-200/80 p-6 space-y-5">
-            <h2 className="text-base font-semibold text-stone-900">Metal Tone Variations</h2>
             <div>
-              <label htmlFor="product-color-name" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Color / Tone Title
-              </label>
-              <input
-                id="product-color-name"
-                name="colors" // Maps straight to your 'colors' text column parameter row layout
-                type="text"
-                maxLength={60}
-                defaultValue={product?.colors || ''}
-                placeholder="e.g. 18k Rose Gold, Polished Silver"
-                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c5a880]/30 focus:border-[#c5a880] transition-all"
-              />
-            </div>
-            
-            {/* Color Swatch Picker Wrapper */}
-            <div>
-              <label htmlFor="product-color-hex" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Swatch Tone Color
-              </label>
-              <div className="flex items-center gap-2.5">
-                <input
-                  id="product-color-hex"
-                  type="color"
-                  value={colorHex}
-                  onChange={(e) => setColorHex(e.target.value)}
-                  className="w-11 h-11 rounded-lg border border-stone-200 cursor-pointer p-0.5"
-                />
-                <input
-                  name="color_hex"
-                  type="text"
-                  value={colorHex}
-                  onChange={(e) => setColorHex(e.target.value)}
-                  maxLength={7}
-                  className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c5a880]/30 focus:border-[#c5a880] transition-all"
-                />
-              </div>
+              <h2 className="text-base font-semibold text-stone-900">Product Colors</h2>
+              <p className="text-xs text-stone-400 mt-1">
+                Add the colors available for this product. Click &quot;{isEditing ? 'Update' : 'Save'} Piece&quot; to save the product and generate these tabs for image uploads below.
+              </p>
             </div>
 
-            {/* Optional Color Variant Sibling Sorter Group */}
-            <div>
-              <label htmlFor="product-group-with" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Group With Sibling Design
-              </label>
-              <select
-                id="product-group-with"
-                name="group_with"
-                defaultValue={currentSibling?.id || ''}
-                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c5a880]/30 focus:border-[#c5a880] transition-all"
-              >
-                <option value="">Standalone — no color group</option>
-                {otherProducts.map((p: any) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.colors ? `(${p.colors})` : ''}
-                  </option>
+            {/* Hidden fields submitted with the form */}
+            <input type="hidden" name="color_swatches" value={JSON.stringify(colorsList)} />
+            <input type="hidden" name="colors" value={colorsList.map((c) => c.name).join(',')} />
+            <input type="hidden" name="color_hex" value={colorsList[0]?.hex || ''} />
+
+            {/* Color Chip List */}
+            {colorsList.length > 0 ? (
+              <div className="flex flex-wrap gap-2 p-3 bg-stone-50 rounded-xl border border-stone-200/60">
+                {colorsList.map((c, index) => (
+                  <div key={c.name} className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border text-xs font-semibold text-stone-850 shadow-sm ${index === 0 ? 'border-[#c5a880] ring-1 ring-[#c5a880]' : 'border-stone-200'}`}>
+                    <span className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0" style={{ backgroundColor: c.hex }} />
+                    <span>{c.name} {index === 0 && <span className="text-[10px] text-[#c5a880] font-normal">(Default)</span>}</span>
+                    {index !== 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newList = [c, ...colorsList.filter((item) => item.name !== c.name)]
+                          setColorsList(newList)
+                        }}
+                        className="text-stone-400 hover:text-[#c5a880] transition-colors text-xs font-medium ml-1"
+                        title="Set as Default Color"
+                      >
+                        ★
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveColor(c.name)}
+                      className="text-stone-400 hover:text-red-500 transition-colors ml-1 font-bold text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
                 ))}
-              </select>
+              </div>
+            ) : (
+              <p className="text-xs text-stone-400">No tone variations added yet.</p>
+            )}
+
+            {/* Add New Color Form */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <input
+                type="text"
+                value={colorInputName}
+                onChange={(e) => setColorInputName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddColor()
+                  }
+                }}
+                placeholder="Tone name (e.g. Rose Gold)"
+                className="flex-1 min-w-[8rem] px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#c5a880]/30 focus:border-[#c5a880] transition-all"
+              />
+              <input
+                type="color"
+                value={colorInputHex}
+                onChange={(e) => setColorInputHex(e.target.value)}
+                className="w-11 h-11 rounded-lg border border-stone-200 cursor-pointer p-0.5 shrink-0"
+              />
+              <button
+                type="button"
+                onClick={handleAddColor}
+                className="px-4 py-2.5 rounded-xl bg-stone-900 text-white text-sm font-semibold hover:bg-stone-800 transition-colors shrink-0"
+              >
+                Add
+              </button>
             </div>
+
           </div>
 
         </div>

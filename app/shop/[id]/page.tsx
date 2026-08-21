@@ -66,7 +66,7 @@
 //     const sizeList = typeof productData.sizes === 'string' 
 //       ? productData.sizes.split(',') 
 //       : Array.isArray(productData.sizes) ? productData.sizes : []
-    
+
 //     variants = sizeList.map((size: string, idx: number) => ({
 //       id: `${productData.id}-${size.trim()}`,
 //       variant_name: size.trim(),
@@ -146,7 +146,7 @@
 //                 <h1 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-neutral-900 mt-2 leading-tight" style={{ fontFamily: 'Playfair Display, serif' }}>
 //                   {productData.name}
 //                 </h1>
-                
+
 //                 <div className="mt-3 flex items-center gap-1.5 text-sm text-neutral-500">
 //                   <div className="flex text-[#c5a880]">★★★★★</div>
 //                   <span className="font-semibold text-neutral-800">5.0 ★</span>
@@ -207,13 +207,13 @@
 //         // Resolve dynamic strings cleanly matching your main shop layout card logic
 //         const catName = p.category_name || "Jewelry"
 //         const itemStrikePrice = p.originalPrice || p.oldPrice
-        
+
 //         // Safety check evaluation if wishlist state handlers exist in this context page view
 //         const favorited = typeof isInWishlist === 'function' ? isInWishlist(p.id) : false
 
 //         return (
 //           <div key={p.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-neutral-100 flex flex-col transition-all duration-300 relative">
-            
+
 //             {/* ✅ FIXED: Re-introduced Wishlist Heart Icon Toggle Button */}
 //             {typeof handleWishlistToggle === 'function' && (
 //               <button
@@ -234,7 +234,7 @@
 //                 sizes="(max-width: 768px) 50vw, 320px"
 //                 className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
 //               />
-              
+
 //               {/* ✅ FIXED: Re-introduced Absolute Corner Badge if tracking a sale or hot element */}
 //               {p.badge && (
 //                 <span className="absolute top-3 left-3 bg-neutral-900 text-white text-[9px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-md shadow-sm">
@@ -329,8 +329,7 @@
 // }
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import ProductDetailActions from './_components/ProductDetailActions'
-import ProductGallery from './_components/ProductGallery'
+import ProductViewSection from './_components/ProductViewSection'
 import ProductReviews from './_components/ProductReviews'
 import RecentlyViewed from './_components/RecentlyViewed'
 import SimilarProducts from './_components/SimilarProducts' // ✅ Ensure clean client reference
@@ -350,13 +349,76 @@ export default async function ProductDetailPage({ params }: { params: any }) {
   const { id } = await params;
 
   // 1. Fetch main product details
-  const { data: productData } = await supabase
+  const { data: productData, error: productError } = await supabase
     .from("products")
-    .select(`id, name, price, originalPrice, image, images, category, subcategory, description, sizes, colors, tag, available, stock`)
+    .select(`id, name, price, originalPrice, image, images, category, subcategory, description, sizes, colors, color_swatches, tag, available, stock`)
     .eq("id", id)
     .single();
 
-  if (!productData) notFound();
+  if (productError || !productData) {
+    console.error("DEBUG - Product Fetch Failed:", { id, productError, productData });
+    notFound();
+  }
+
+  // 1a-1. Parse the admin's "Metal Tone Variations" chip picker JSON — [{"name":"Rose Gold","hex":"#c5a880"}] —
+  //       into a name -> hex lookup so each color swatch button below can render its real color.
+  let colorHexByName: Record<string, string> = {}
+  if (productData.color_swatches) {
+    try {
+      const parsedSwatches = JSON.parse(productData.color_swatches)
+      if (Array.isArray(parsedSwatches)) {
+        colorHexByName = Object.fromEntries(
+          parsedSwatches
+            .filter((c: any) => c?.name)
+            .map((c: any) => [String(c.name).toLowerCase().trim(), c.hex || '#c5a880'])
+        )
+      }
+    } catch (e) {
+      console.error('Failed to parse color_swatches JSON:', e)
+    }
+  }
+
+  // 1a-2. Logged-in check (reviews can only be written while logged in) + approved reviews for this product.
+  let loggedInUser: any = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    loggedInUser = data?.user || null
+  } catch {
+    console.warn('Product page session check handled smoothly.')
+  }
+
+  const { data: reviewRows } = await supabase
+    .from('reviews')
+    .select('id, rating, review, user_id, created_at')
+    .eq('product_id', id)
+    .eq('approved', true)
+    .order('created_at', { ascending: false })
+
+  // Reviewer names are looked up separately (not via a nested `profiles(...)` embed) —
+  // the admin reviews screen hit relationship-cache failures doing that embed, so this
+  // mirrors its safer two-query pattern.
+  const reviewerIds = Array.from(new Set((reviewRows || []).map((r: any) => r.user_id).filter(Boolean)))
+  let reviewerNames: Record<string, string> = {}
+  if (reviewerIds.length > 0) {
+    const { data: reviewerProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', reviewerIds)
+    reviewerNames = Object.fromEntries((reviewerProfiles || []).map((p: any) => [p.id, p.full_name]))
+  }
+
+  const productReviews = (reviewRows || []).map((r: any) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.review,
+    created_at: r.created_at,
+    profiles: { full_name: reviewerNames[r.user_id] || 'Verified Buyer' },
+  }))
+
+  const reviewCount = productReviews.length
+  const avgRating = reviewCount > 0
+    ? productReviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviewCount
+    : 0
 
   // 1b. Fetch active product_variants rows (the admin "Color Options" editor saves here).
   //     These take precedence over the product's colors/sizes columns.
@@ -373,7 +435,17 @@ export default async function ProductDetailPage({ params }: { params: any }) {
     price: Number(v.price),
     original_price: v.original_price != null ? Number(v.original_price) : null,
     stock_quantity: Number(v.stock_quantity) || 0,
+    color_hex: colorHexByName[String(v.variant_name || '').toLowerCase().trim()],
   }))
+
+  // 1c. Fetch product_images rows — each may be tagged with a color name (from the
+  //     "Product Colors" chip list) so the gallery can swap to that color's photos.
+  //     A null color_name shows the image for every color.
+  const { data: productImageRows } = await supabase
+    .from('product_images')
+    .select('image_url, color_name, sort_order')
+    .eq('product_id', id)
+    .order('sort_order', { ascending: true })
 
   // Compile image list array cleanly
   let images: string[] = []
@@ -387,55 +459,44 @@ export default async function ProductDetailPage({ params }: { params: any }) {
   if (images.length === 0 && productData.image) images = [productData.image]
   if (images.length === 0) images = ['/assets/img/placeholder.jpeg']
 
-  // Compile color variant options: saved product_variants win, then colors, then sizes, then Standard
+  // galleryImages carries the per-color tag; falls back to the flat images[] list when
+  // the product_images table has no rows for this product yet.
+  const galleryImages = (productImageRows && productImageRows.length > 0)
+    ? productImageRows.map((img: any) => ({ image_url: img.image_url, color_name: img.color_name || null }))
+    : images.map((url) => ({ image_url: url, color_name: null as string | null }))
+
+  // Compile color variant options: saved product_variants win, then legacy colors column.
+  // A product with no colors at all simply gets an empty array — no color selector renders,
+  // and price/stock fall back to the product's own fields directly (see ProductDetailActions).
   let variants: any[] = []
   if (dbVariants.length > 0) {
     variants = dbVariants
   } else {
     const colorList = productData.colors
       ? (Array.isArray(productData.colors)
-          ? productData.colors
-          : typeof productData.colors === 'string'
-            ? productData.colors.split(',').map((c: string) => c.trim()).filter(Boolean)
-            : [])
+        ? productData.colors
+        : typeof productData.colors === 'string'
+          ? productData.colors.split(',').map((c: string) => c.trim()).filter(Boolean)
+          : [])
       : []
     if (colorList.length > 0) {
       variants = colorList.map((color: string) => ({
         id: `${productData.id}-${color.trim()}`,
         variant_name: color.trim(),
-        price: productData.price,
-        original_price: productData.originalPrice || null,
-        stock_quantity: Number(productData.stock) || 0
+        stock_quantity: Number(productData.stock) || 0,
+        color_hex: colorHexByName[color.trim().toLowerCase()],
       }))
-    }
-
-    // Fallback to the legacy sizes column if no colors are configured
-    if (variants.length === 0 && productData.sizes) {
-      const sizeList = typeof productData.sizes === 'string' 
-        ? productData.sizes.split(',') 
-        : Array.isArray(productData.sizes) ? productData.sizes : []
-      variants = sizeList.map((size: string) => ({
-        id: `${productData.id}-${size.trim()}`,
-        variant_name: size.trim(),
-        price: productData.price,
-        original_price: productData.originalPrice || null,
-        stock_quantity: Number(productData.stock) || 0
-      }))
-    }
-    if (variants.length === 0) {
-      variants = [{ id: `${productData.id}-standard`, variant_name: 'Standard', price: productData.price, original_price: productData.originalPrice || null, stock_quantity: Number(productData.stock) || 0 }]
     }
   }
 
   // =========================================================
   // 🌟 DYNAMIC FILLER STRATEGY FOR EXACTLY 5 DESKTOP CARDS
   // =========================================================
-  
+
   // A. Fetch highly targeted similar category items (Pulling up to 5)
   const { data: directSimilarData } = await supabase
     .from("products")
-    .select("id, name, price, originalPrice, image, category, tag, colors, stock, available")
-    .eq("available", true)
+    .select("id, name, price, originalPrice, image, category, tag, colors, color_swatches, stock, available")
     .eq("category", productData.category)
     .neq("id", productData.id)
     .limit(5);
@@ -449,8 +510,7 @@ export default async function ProductDetailPage({ params }: { params: any }) {
 
     const { data: fillerData } = await supabase
       .from("products")
-      .select("id, name, price, originalPrice, image, category, tag, colors, stock, available")
-      .eq("available", true)
+      .select("id, name, price, originalPrice, image, category, tag, colors, color_swatches, stock, available")
       .not("id", "in", `(${existingIds.join(',')})`)
       .limit(neededCount);
 
@@ -460,26 +520,51 @@ export default async function ProductDetailPage({ params }: { params: any }) {
   }
 
   // Map backend properties into your clean frontend card object format
-  const finalSimilarProducts = mergedProductsRaw.map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    category_id: p.category?.toLowerCase() || 'jewelry',
-    category_name: p.category || 'Jewelry',
-    image_url: p.image || "/assets/img/placeholder.jpeg",
-    price: p.price || 0,
-    originalPrice: p.originalPrice || undefined,
-    badge: p.tag || undefined,
-    rating: 5.0,
-    stock: p.stock != null ? Number(p.stock) : undefined,
-    available: p.available ?? true,
-    colorCount:p.colors 
-  ? (Array.isArray(p.colors) 
-      ? p.colors.length 
-      : typeof p.colors === 'string' 
-        ? p.colors.split(',').length 
-        : 1)
-  : 1
-  }));
+  const finalSimilarProducts = mergedProductsRaw.map((p: any) => {
+    let colorsList: { name: string; hex: string }[] = []
+    let defaultColorName = undefined
+    let defaultColorHex = undefined
+    if (p.color_swatches) {
+      try {
+        const parsed = JSON.parse(p.color_swatches)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          colorsList = parsed
+          defaultColorName = parsed[0].name
+          defaultColorHex = parsed[0].hex
+        }
+      } catch (e) {}
+    }
+    if (colorsList.length === 0 && p.colors) {
+      const colorList = Array.isArray(p.colors)
+        ? p.colors
+        : typeof p.colors === 'string'
+          ? p.colors.split(',').map((c: string) => c.trim()).filter(Boolean)
+          : []
+      colorsList = colorList.map(name => ({ name, hex: '#c5a880' }))
+      if (colorsList.length > 0) {
+        defaultColorName = colorsList[0].name
+        defaultColorHex = colorsList[0].hex
+      }
+    }
+
+    return {
+      id: p.id,
+      name: p.name,
+      category_id: p.category?.toLowerCase() || 'jewelry',
+      category_name: p.category || 'Jewelry',
+      image_url: p.image || "/assets/img/placeholder.jpeg",
+      price: p.price || 0,
+      originalPrice: p.originalPrice || undefined,
+      badge: p.tag || undefined,
+      rating: 5.0,
+      stock: p.stock != null ? Number(p.stock) : undefined,
+      available: p.available ?? true,
+      colorsList,
+      colorCount: colorsList.length,
+      defaultColorName,
+      defaultColorHex
+    };
+  });
 
   const categoryName = productData.category || 'Jewelry';
 
@@ -488,7 +573,7 @@ export default async function ProductDetailPage({ params }: { params: any }) {
       <Header />
       <main className="min-h-screen bg-white pt-28 pb-16 md:pt-36 md:pb-24">
         <div className="max-w-7xl mx-auto px-5 md:px-8">
-          
+
           {/* Breadcrumbs Section */}
           <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-medium mb-8">
             <Link href="/" className="hover:text-[#c5a880] transition-colors">Home</Link>
@@ -502,47 +587,33 @@ export default async function ProductDetailPage({ params }: { params: any }) {
             <span className="text-neutral-900 font-semibold truncate max-w-[200px]">{productData.name}</span>
           </div>
 
-          {/* Product Gallery & Details Form Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-start">
-            <ProductGallery images={images} productName={productData.name} badge={productData.tag} />
+          {/* Product Gallery & Details Form Row — color swatch selection swaps the gallery images */}
+          <ProductViewSection
+            product={{
+              id: productData.id,
+              name: productData.name,
+              category_name: categoryName,
+              subcategory: productData.subcategory,
+              description: productData.description,
+              price: Number(productData.price) || 0,
+              originalPrice: productData.originalPrice ? Number(productData.originalPrice) : null,
+              stock: productData.stock != null ? Number(productData.stock) : undefined,
+              available: productData.available ?? true,
+            }}
+            variants={variants}
+            images={galleryImages}
+            badge={productData.tag}
+            avgRating={avgRating}
+            reviewCount={reviewCount}
+          />
 
-            <div className="space-y-8">
-              <div>
-                <span className="text-xs uppercase tracking-widest text-[#c5a880] font-bold">
-                  {categoryName} {productData.subcategory && `• ${productData.subcategory}`}
-                </span>
-                <h1 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-neutral-900 mt-2 leading-tight" style={{ fontFamily: 'Playfair Display, serif' }}>
-                  {productData.name}
-                </h1>
-                <div className="mt-3 flex items-center gap-1.5 text-sm text-neutral-500">
-                  <div className="flex text-[#c5a880]">★★★★★</div>
-                  <span className="font-semibold text-neutral-800">5.0 ★</span>
-                  <span className="text-neutral-200">|</span>
-                  <span>Waterproof & Anti-Tarnish</span>
-                </div>
-              </div>
-
-              <ProductDetailActions 
-                product={{ id: productData.id, name: productData.name, image_url: images[0], category_name: categoryName, variants: variants, stock: productData.stock != null ? Number(productData.stock) : undefined, available: productData.available ?? true }}
-              />
-
-              {productData.description && (
-                <div className="font-body text-neutral-600 text-sm leading-relaxed pt-2">
-                  <h3 className="font-semibold text-neutral-900 mb-2">Description</h3>
-                  <p className="whitespace-pre-wrap">{productData.description}</p>
-                </div>
-              )}
-
-              <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Secure Payment Options</span>
-                <div className="flex gap-3 text-neutral-400 text-xl">
-                  <i className="fa-brands fa-cc-visa" title="Visa"></i>
-                  <i className="fa-brands fa-cc-mastercard" title="Mastercard"></i>
-                  <i className="fa-brands fa-cc-rupay" title="Rupay"></i>
-                  <i className="fa-solid fa-credit-card" title="UPI & Net Banking"></i>
-                </div>
-              </div>
-            </div>
+          {/* Customer Reviews — only approved reviews are shown; writing one requires login */}
+          <div className="mt-16">
+            <ProductReviews
+              productId={productData.id}
+              initialReviews={productReviews}
+              isLoggedIn={!!loggedInUser}
+            />
           </div>
 
           {/* ========================================================= */}

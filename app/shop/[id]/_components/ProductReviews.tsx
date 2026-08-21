@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Star, MessageCircle } from 'lucide-react'
+import Link from 'next/link'
+import { Star, MessageCircle, Lock } from 'lucide-react'
 import { submitReview } from '@/actions/reviews'
 
 interface Review {
@@ -12,18 +13,22 @@ interface Review {
   profiles: { full_name: string } | null
 }
 
-export default function ProductReviews({ 
-  productId, 
-  initialReviews 
-}: { 
+export default function ProductReviews({
+  productId,
+  initialReviews,
+  isLoggedIn
+}: {
   productId: string
-  initialReviews: Review[] 
+  initialReviews: Review[]
+  isLoggedIn: boolean
 }) {
+  const REVIEWS_PAGE_SIZE = 6
   const [rating, setRating] = useState(5)
   const [hoveredRating, setHoveredRating] = useState(0)
   const [comment, setComment] = useState('')
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [visibleCount, setVisibleCount] = useState(REVIEWS_PAGE_SIZE)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,28 +87,51 @@ export default function ProductReviews({
               <p className="text-ink/50 text-sm">No reviews yet. Be the first to review this product!</p>
             </div>
           ) : (
-            initialReviews.map((review) => (
-              <div key={review.id} className="pb-6 border-b border-cream-line/40 last:border-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex text-gold">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className={`w-3.5 h-3.5 ${star <= review.rating ? 'fill-gold' : 'fill-stone-100 text-stone-200'}`} />
-                    ))}
+            <>
+              {initialReviews.slice(0, visibleCount).map((review) => (
+                <div key={review.id} className="pb-6 border-b border-cream-line/40 last:border-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex text-gold">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className={`w-3.5 h-3.5 ${star <= review.rating ? 'fill-gold' : 'fill-stone-100 text-stone-200'}`} />
+                      ))}
+                    </div>
+                    <span className="text-sm font-semibold text-ink ml-1">{review.profiles?.full_name || 'Anonymous'}</span>
+                    <span className="text-xs text-ink/40 ml-auto">{new Date(review.created_at).toLocaleDateString()}</span>
                   </div>
-                  <span className="text-sm font-semibold text-ink ml-1">{review.profiles?.full_name || 'Anonymous'}</span>
-                  <span className="text-xs text-ink/40 ml-auto">{new Date(review.created_at).toLocaleDateString()}</span>
+                  {review.comment && (
+                    <p className="text-ink/75 text-sm leading-relaxed mt-2">{review.comment}</p>
+                  )}
                 </div>
-                {review.comment && (
-                  <p className="text-ink/75 text-sm leading-relaxed mt-2">{review.comment}</p>
-                )}
-              </div>
-            ))
+              ))}
+              {visibleCount < initialReviews.length && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((v) => v + REVIEWS_PAGE_SIZE)}
+                  className="w-full py-2.5 text-sm font-semibold text-ink border border-cream-line rounded-xl hover:bg-cream/50 transition-colors"
+                >
+                  Load More Reviews ({initialReviews.length - visibleCount} more)
+                </button>
+              )}
+            </>
           )}
         </div>
 
         <div className="md:col-span-5">
           <div className="bg-cream/30 p-6 rounded-xl border border-cream-line">
             <h4 className="font-semibold text-ink mb-4">Write a Review</h4>
+            {!isLoggedIn ? (
+              <div className="text-center py-6">
+                <Lock className="w-7 h-7 text-ink/20 mx-auto mb-3" />
+                <p className="text-sm text-ink/60 mb-4">Please log in to write a review for this product.</p>
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(`/shop/${productId}`)}`}
+                  className="inline-block px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-xl hover:bg-gold transition-colors"
+                >
+                  Log In
+                </Link>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-ink/70 mb-2">Rating</label>
@@ -150,6 +178,7 @@ export default function ProductReviews({
                 {isPending ? 'Submitting...' : 'Submit Review'}
               </button>
             </form>
+            )}
           </div>
         </div>
       </div>

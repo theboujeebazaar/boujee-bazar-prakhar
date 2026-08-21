@@ -19,34 +19,6 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-// Resolves the color_group_id to store for a product, given the "group with"
-// selection from the admin form (another product's ID to share colors with).
-async function resolveColorGroupId(
-  supabase: ReturnType<typeof createAdminClient>,
-  groupWithProductId: string | null
-): Promise<string | null> {
-  if (!groupWithProductId) return null
-
-  const { data: target } = await supabase
-    .from('products')
-    .select('id, color_group_id')
-    .eq('id', groupWithProductId)
-    .single()
-
-  if (!target) return null
-
-  if (target.color_group_id) return target.color_group_id
-
-  // Target isn't in a group yet — create one and backfill it onto the target.
-  const newGroupId = crypto.randomUUID()
-  await supabase
-    .from('products')
-    .update({ color_group_id: newGroupId })
-    .eq('id', target.id)
-
-  return newGroupId
-}
-
 export async function createProduct(
   _prevState: ActionResult,
   formData: FormData
@@ -64,16 +36,13 @@ export async function createProduct(
   const description = formData.get('description') as string
   const seoTitle = formData.get('seo_title') as string
   const seoDescription = formData.get('seo_description') as string
-  const image = formData.get('image') as string
-  const imagesJson = formData.get('images') as string
-  const images = imagesJson ? JSON.parse(imagesJson) : []
   const tag = formData.get('tag') as string
   const available = formData.get('available') === 'true' || formData.get('available') === 'on' || formData.get('available') === 'available'
   const isFeatured = formData.get('is_featured') === 'on' || formData.get('is_featured') === 'true'
   const colorsInput = formData.get('colors') as string
   const colors = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : []
   const colorHex = formData.get('color_hex') as string
-  const groupWith = (formData.get('group_with') as string) || null
+  const colorSwatches = (formData.get('color_swatches') as string) || null
 
   if (!name) {
     return { error: 'Product name is required' }
@@ -81,7 +50,6 @@ export async function createProduct(
 
   const slug = slugify(name)
   const id = crypto.randomUUID()
-  const colorGroupId = await resolveColorGroupId(supabase, groupWith)
 
   const { data: product, error } = await supabase.from('products').insert({
     id,
@@ -98,15 +66,13 @@ export async function createProduct(
     description: description || null,
     seo_title: seoTitle || null,
     seo_description: seoDescription || null,
-    image: image || null,
-    images: images,
     tag: tag || null,
     available,
     is_active: available,
     is_featured: isFeatured,
     colors: colors,
     color_hex: colorHex || null,
-    color_group_id: colorGroupId,
+    color_swatches: colorSwatches,
   }).select('id').single()
 
   if (error) {
@@ -138,23 +104,19 @@ export async function updateProduct(
   const description = formData.get('description') as string
   const seoTitle = formData.get('seo_title') as string
   const seoDescription = formData.get('seo_description') as string
-  const image = formData.get('image') as string
-  const imagesJson = formData.get('images') as string
-  const images = imagesJson ? JSON.parse(imagesJson) : []
   const tag = formData.get('tag') as string
   const available = formData.get('available') === 'true' || formData.get('available') === 'on' || formData.get('available') === 'available'
   const isFeatured = formData.get('is_featured') === 'on' || formData.get('is_featured') === 'true'
   const colorsInput = formData.get('colors') as string
   const colors = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : []
   const colorHex = formData.get('color_hex') as string
-  const groupWith = (formData.get('group_with') as string) || null
+  const colorSwatches = (formData.get('color_swatches') as string) || null
 
   if (!id || !name) {
     return { error: 'Product ID and name are required' }
   }
 
   const slug = slugify(name)
-  const colorGroupId = await resolveColorGroupId(supabase, groupWith)
 
   const { error } = await supabase
     .from('products')
@@ -172,15 +134,13 @@ export async function updateProduct(
       description: description || null,
       seo_title: seoTitle || null,
       seo_description: seoDescription || null,
-      image: image || null,
-      images: images,
       tag: tag || null,
       available,
       is_active: available,
       is_featured: isFeatured,
       colors: colors,
       color_hex: colorHex || null,
-      color_group_id: colorGroupId,
+      color_swatches: colorSwatches,
     })
     .eq('id', id)
 
@@ -276,7 +236,8 @@ export async function saveProductInformation(
 
 export async function addProductImage(
   productId: string,
-  imageUrl: string
+  imageUrl: string,
+  colorName?: string | null
 ): Promise<ActionResult> {
   const supabase = createAdminClient()
 
@@ -295,6 +256,7 @@ export async function addProductImage(
     product_id: productId,
     image_url: imageUrl,
     sort_order: nextSort,
+    color_name: colorName || null,
   })
 
   if (error) {
@@ -310,6 +272,28 @@ export async function addProductImage(
   }
 
   revalidatePath(`/admin/products/${productId}/edit`)
+  revalidatePath(`/shop/${productId}`)
+  return { success: true }
+}
+
+export async function updateProductImageColor(
+  imageId: string,
+  productId: string,
+  colorName: string | null
+): Promise<ActionResult> {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from('product_images')
+    .update({ color_name: colorName || null })
+    .eq('id', imageId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath(`/admin/products/${productId}/edit`)
+  revalidatePath(`/shop/${productId}`)
   return { success: true }
 }
 
@@ -397,6 +381,8 @@ export async function reorderProductImages(
 
 // ─── Product Variant CRUD ────────────────────────────────
 
+// Color Options no longer collect their own price — price is a single product-level
+// value (set in Basic Information), shared across every color. Stock still varies by color.
 export async function createProductVariant(
   _prevState: ActionResult,
   formData: FormData
@@ -405,20 +391,24 @@ export async function createProductVariant(
 
   const productId = formData.get('product_id') as string
   const variantName = formData.get('variant_name') as string
-  const price = formData.get('price') as string
-  const originalPrice = formData.get('original_price') as string
   const stockQuantity = formData.get('stock_quantity') as string
   const isActive = formData.get('is_active') === 'on'
 
-  if (!productId || !variantName || !price) {
-    return { error: 'Product ID, Variant Name, and Price are required' }
+  if (!productId || !variantName) {
+    return { error: 'Product ID and Color Name are required' }
   }
+
+  const { data: product } = await supabase
+    .from('products')
+    .select('price, originalPrice')
+    .eq('id', productId)
+    .single()
 
   const { error } = await supabase.from('product_variants').insert({
     product_id: productId,
     variant_name: variantName,
-    price: parseFloat(price),
-    original_price: originalPrice ? parseFloat(originalPrice) : null,
+    price: product?.price ?? 0,
+    original_price: product?.originalPrice ?? null,
     stock_quantity: parseInt(stockQuantity || '0', 10),
     is_active: isActive,
   })
@@ -437,8 +427,6 @@ export async function bulkCreateProductVariants(
   productId: string,
   variants: {
     variant_name: string
-    price: number
-    original_price: number | null
     stock_quantity: number
     is_active: boolean
   }[]
@@ -449,9 +437,19 @@ export async function bulkCreateProductVariants(
     return { error: 'Invalid data' }
   }
 
+  const { data: product } = await supabase
+    .from('products')
+    .select('price, originalPrice')
+    .eq('id', productId)
+    .single()
+
   const rows = variants.map(v => ({
     product_id: productId,
-    ...v
+    variant_name: v.variant_name,
+    price: product?.price ?? 0,
+    original_price: product?.originalPrice ?? null,
+    stock_quantity: v.stock_quantity,
+    is_active: v.is_active,
   }))
 
   const { error } = await supabase.from('product_variants').insert(rows)
@@ -475,21 +473,17 @@ export async function updateProductVariant(
   const id = formData.get('id') as string
   const productId = formData.get('product_id') as string
   const variantName = formData.get('variant_name') as string
-  const price = formData.get('price') as string
-  const originalPrice = formData.get('original_price') as string
   const stockQuantity = formData.get('stock_quantity') as string
   const isActive = formData.get('is_active') === 'on'
 
-  if (!id || !variantName || !price) {
-    return { error: 'Variant ID, Name, and Price are required' }
+  if (!id || !variantName) {
+    return { error: 'Variant ID and Color Name are required' }
   }
 
   const { error } = await supabase
     .from('product_variants')
     .update({
       variant_name: variantName,
-      price: parseFloat(price),
-      original_price: originalPrice ? parseFloat(originalPrice) : null,
       stock_quantity: parseInt(stockQuantity || '0', 10),
       is_active: isActive,
     })

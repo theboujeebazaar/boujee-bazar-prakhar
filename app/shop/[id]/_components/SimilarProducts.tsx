@@ -67,6 +67,18 @@ export default function SimilarProducts({ similarProducts = [] }: { similarProdu
                       {p.name}
                     </h3>
                   </Link>
+                  {p.colorsList && p.colorsList.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 mt-2">
+                      {p.colorsList.map((c: any) => (
+                        <span 
+                          key={c.name} 
+                          className="w-2.5 h-2.5 rounded-full border border-black/10 shadow-2xs block" 
+                          style={{ backgroundColor: c.hex }}
+                          title={c.name}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3 flex items-baseline gap-1">
@@ -90,9 +102,29 @@ export default function SimilarProducts({ similarProducts = [] }: { similarProdu
                     <button
                       type="button"
                       onClick={() => {
-                        addToCart({ id: p.id, name: p.name, price: p.price, image_url: p.image_url, category_name: catName });
+                        addToCart({ 
+                          id: p.id, 
+                          name: p.name, 
+                          price: p.price, 
+                          image_url: p.image_url, 
+                          category_name: catName,
+                          variant_name: p.defaultColorName,
+                          variant_color_hex: p.defaultColorHex,
+                          variant_id: p.defaultColorName ? `${p.id}-${p.defaultColorName}` : undefined
+                        });
                         if (typeof window !== 'undefined') {
-                          const currentItem = { id: p.id, cartItemId: p.id + '-init', name: p.name, price: p.price, image: p.image_url, quantity: 1, category_name: catName };
+                          const currentItem = { 
+                            id: p.id, 
+                            cartItemId: p.defaultColorName ? `${p.id}-${p.defaultColorName}` : `${p.id}-init`, 
+                            name: p.name, 
+                            price: p.price, 
+                            image: p.image_url, 
+                            quantity: 1, 
+                            category_name: catName,
+                            variant_name: p.defaultColorName,
+                            variant_color_hex: p.defaultColorHex,
+                            variant_id: p.defaultColorName ? `${p.id}-${p.defaultColorName}` : undefined
+                          };
                           const encodedData = encodeURIComponent(JSON.stringify([currentItem]));
                           document.cookie = `boujee-cart-token=${encodedData}; path=/; max-age=604800;`;
                           localStorage.setItem('cart', JSON.stringify([currentItem]));
